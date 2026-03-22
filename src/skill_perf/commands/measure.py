@@ -140,23 +140,39 @@ def run_measure(
 
 def _run_diagnosis(trace_dir: str, open_browser: bool) -> None:
     """Parse captured traces and run diagnosis."""
+    from skill_perf.diagnosis.engine import diagnose
     from skill_perf.parser.trace_reader import parse_session
 
     sessions_found = 0
+
+    # Try the trace_dir itself first (lli puts split_output/ and merged.jsonl here)
+    dirs_to_try = [trace_dir]
+    # Also try subdirectories (for multi-session captures)
     for entry in os.listdir(trace_dir):
-        session_path = os.path.join(trace_dir, entry)
-        if os.path.isdir(session_path):
-            try:
-                session = parse_session(session_path)
-                sessions_found += 1
-                console.print(
-                    f"  Session {session.session_id}: "
-                    f"input={session.api_input_tokens} "
-                    f"output={session.api_output_tokens} "
-                    f"model={session.model}"
-                )
-            except Exception as exc:
-                console.print(f"  [yellow]Skipped {entry}: {exc}[/yellow]")
+        entry_path = os.path.join(trace_dir, entry)
+        if os.path.isdir(entry_path) and entry != "split_output":
+            dirs_to_try.append(entry_path)
+
+    for session_path in dirs_to_try:
+        try:
+            session = parse_session(session_path)
+            if not session.steps:
+                continue
+            sessions_found += 1
+            issues = diagnose(session)
+            session.issues = issues
+            console.print(
+                f"  Session {session.session_id}: "
+                f"input={session.api_input_tokens:,} "
+                f"output={session.api_output_tokens:,} "
+                f"model={session.model} "
+                f"issues={len(issues)}"
+            )
+            for issue in issues:
+                icon = {"critical": "🔴", "warning": "🟡", "info": "🟢"}[issue.severity]
+                console.print(f"    {icon} {issue.pattern}: {issue.description}")
+        except Exception as exc:
+            console.print(f"  [yellow]Skipped {session_path}: {exc}[/yellow]")
 
     if sessions_found == 0:
         console.print("  [dim]No session traces found to diagnose.[/dim]")

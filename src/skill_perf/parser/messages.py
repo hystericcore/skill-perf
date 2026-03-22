@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from skill_perf.core.tokenizer import content_to_text, count_tokens
 from skill_perf.models.step import ConversationStep
@@ -16,7 +17,7 @@ def _preview(text: str, limit: int = 200) -> str:
     return text
 
 
-def parse_request(body: dict) -> list[ConversationStep]:
+def parse_request(body: dict[str, Any]) -> list[ConversationStep]:
     """Parse an API request body (messages array + system prompt) into steps.
 
     Handles Anthropic-style requests with ``system`` key and ``messages``
@@ -153,7 +154,7 @@ def parse_request(body: dict) -> list[ConversationStep]:
     return steps
 
 
-def parse_response_usage(body: dict, provider: str) -> tuple[int, int, str]:
+def parse_response_usage(body: dict[str, Any], provider: str) -> tuple[int, int, str]:
     """Extract (input_tokens, output_tokens, model) from API response body.
 
     Supports Anthropic and OpenAI response formats.

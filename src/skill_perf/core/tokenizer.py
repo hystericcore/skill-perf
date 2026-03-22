@@ -28,7 +28,7 @@ def count_tokens(text: str) -> int:
         return int(len(text) / 3.5)
 
 
-def content_to_text(content: str | list | dict) -> str:
+def content_to_text(content: str | list[object] | dict[str, object]) -> str:
     """Extract plain text from various API content formats.
 
     Handles:

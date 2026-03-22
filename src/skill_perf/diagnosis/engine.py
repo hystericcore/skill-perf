@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from skill_perf.diagnosis.patterns import (
     detect_cat_on_large_file,
     detect_duplicate_reads,
@@ -14,11 +16,15 @@ from skill_perf.diagnosis.patterns import (
 )
 from skill_perf.models.diagnosis import Issue
 from skill_perf.models.session import SessionAnalysis
+from skill_perf.models.step import ConversationStep
 
 SEVERITY_ORDER: dict[str, int] = {"critical": 0, "warning": 1, "info": 2}
 
+StepDetector = Callable[[list[ConversationStep]], list[Issue]]
+SessionDetector = Callable[[SessionAnalysis], list[Issue]]
+
 # Detectors that operate on steps only
-_STEP_DETECTORS = [
+_STEP_DETECTORS: list[StepDetector] = [
     detect_large_file_read,
     detect_duplicate_reads,
     detect_excessive_exploration,
@@ -27,7 +33,7 @@ _STEP_DETECTORS = [
 ]
 
 # Detectors that require the full session object
-_SESSION_DETECTORS = [
+_SESSION_DETECTORS: list[SessionDetector] = [
     detect_low_cache_rate,
     detect_high_think_ratio,
 ]
@@ -48,8 +54,8 @@ def diagnose(
         issues.extend(detector(session.steps))
 
     # Session-level detectors
-    for detector in _SESSION_DETECTORS:
-        issues.extend(detector(session))
+    for session_detector in _SESSION_DETECTORS:
+        issues.extend(session_detector(session))
 
     # Sort: severity first (critical < warning < info), then by impact_tokens descending
     issues.sort(key=lambda i: (SEVERITY_ORDER.get(i.severity, 9), -i.impact_tokens))

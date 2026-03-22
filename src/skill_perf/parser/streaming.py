@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 
-def parse_sse_response(content: str, provider: str) -> dict:
+def parse_sse_response(content: str, provider: str) -> dict[str, Any]:
     """Extract usage from SSE streaming responses.
 
     Returns a dict with keys:
@@ -15,7 +16,7 @@ def parse_sse_response(content: str, provider: str) -> dict:
     Handles both Anthropic (message_start / message_delta) and
     OpenAI (final chunk with ``usage``) formats.
     """
-    usage: dict = {
+    usage: dict[str, Any] = {
         "model": "",
         "input_tokens": 0,
         "output_tokens": 0,

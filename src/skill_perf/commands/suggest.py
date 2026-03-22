@@ -54,7 +54,7 @@ def _print_suggestion(
 
 def run_suggest(paths: list[str], json_output: bool = False) -> None:
     """Run suggestion generator on trace directories."""
-    all_suggestions: list[dict] = []
+    all_suggestions: list[dict[str, object]] = []
 
     for path in paths:
         session = parse_session(path)

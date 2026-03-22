@@ -2,6 +2,17 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
+StepType = Literal[
+    "system_prompt",
+    "user_message",
+    "tool_call",
+    "tool_result",
+    "skill_load",
+    "assistant_response",
+]
+
 # Tool names that represent file reading
 _READ_TOOLS = frozenset({"read", "fileread", "filereadtool", "view"})
 
@@ -21,7 +32,7 @@ _SKILL_PATTERNS = ("SKILL", "skills/", "references/")
 _SCRIPT_KEYWORDS = ("python ", "node ", "bash ", ".sh", ".py")
 
 
-def classify_step(tool_name: str, tool_input: dict) -> tuple[str, str, str]:
+def classify_step(tool_name: str, tool_input: dict[str, str]) -> tuple[StepType, str, str]:
     """Classify a tool call into (step_type, description, file_path).
 
     Rules:

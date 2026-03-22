@@ -323,7 +323,7 @@ def print_comparison(estimates: list[SkillEstimate]) -> None:
     console.print()
 
 
-def estimate_to_dict(estimate: SkillEstimate) -> dict:
+def estimate_to_dict(estimate: SkillEstimate) -> dict[str, object]:
     """Serialize an estimate to a plain dict for JSON output."""
     return {
         "name": estimate.name,

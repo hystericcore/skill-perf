@@ -36,7 +36,7 @@ _BAR_COLORS: dict[str, str] = {
 def _print_session_report(
     session_dir: str,
     skill_dir: str | None,
-) -> dict | None:
+) -> dict[str, object] | None:
     """Analyse one session and print Rich output. Returns dict for JSON mode."""
     session = parse_session(session_dir)
 
@@ -159,7 +159,7 @@ def run_diagnose(
     if open_browser or static:
         console.print("[yellow]HTML report not implemented yet[/yellow]")
 
-    results: list[dict] = []
+    results: list[dict[str, object]] = []
     for path in paths:
         result = _print_session_report(path, skill_dir=skill_dir)
         if result is not None:

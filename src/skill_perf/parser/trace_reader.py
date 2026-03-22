@@ -7,18 +7,17 @@ import os
 from pathlib import Path
 
 from skill_perf.models.session import SessionAnalysis
+from skill_perf.models.step import ConversationStep
 from skill_perf.parser.messages import parse_request, parse_response_usage
 from skill_perf.parser.providers import detect_provider
 from skill_perf.parser.streaming import parse_sse_response
 
 
-def _parse_split_output(split_dir: str) -> tuple[list, int, int, str]:
+def _parse_split_output(split_dir: str) -> tuple[list[ConversationStep], int, int, str]:
     """Parse split_output/ directory with numbered request/response JSON files.
 
     Returns (steps, input_tokens, output_tokens, model).
     """
-    from skill_perf.models.step import ConversationStep
-
     steps: list[ConversationStep] = []
     api_input = 0
     api_output = 0
@@ -70,13 +69,11 @@ def _parse_split_output(split_dir: str) -> tuple[list, int, int, str]:
     return steps, api_input, api_output, model
 
 
-def _parse_jsonl(jsonl_path: str) -> tuple[list, int, int, str]:
+def _parse_jsonl(jsonl_path: str) -> tuple[list[ConversationStep], int, int, str]:
     """Parse a merged.jsonl or raw.jsonl file.
 
     Returns (steps, input_tokens, output_tokens, model).
     """
-    from skill_perf.models.step import ConversationStep
-
     steps: list[ConversationStep] = []
     api_input = 0
     api_output = 0
@@ -128,7 +125,7 @@ def _parse_jsonl(jsonl_path: str) -> tuple[list, int, int, str]:
     return steps, api_input, api_output, model
 
 
-def _parse_lli_jsonl(jsonl_path: str) -> tuple[list, int, int, str]:
+def _parse_lli_jsonl(jsonl_path: str) -> tuple[list[ConversationStep], int, int, str]:
     """Parse lli's native JSONL format with response_chunk entries.
 
     lli uses entry types: request, response_chunk, response_meta.
@@ -136,8 +133,6 @@ def _parse_lli_jsonl(jsonl_path: str) -> tuple[list, int, int, str]:
 
     Returns (steps, input_tokens, output_tokens, model).
     """
-    from skill_perf.models.step import ConversationStep
-
     steps: list[ConversationStep] = []
     api_input = 0
     api_output = 0
@@ -232,7 +227,7 @@ def parse_session(session_dir: str) -> SessionAnalysis:
     """
     session_id = Path(session_dir).name
 
-    steps: list = []
+    steps: list[ConversationStep] = []
     api_input = 0
     api_output = 0
     model = ""

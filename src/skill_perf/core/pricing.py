@@ -104,18 +104,41 @@ PRICING: dict[str, ModelPricing] = {
 }
 
 
+def _resolve_model(model: str) -> ModelPricing | None:
+    """Resolve a model name to pricing, with fuzzy matching.
+
+    Handles versioned model names like ``claude-opus-4-6``,
+    ``claude-sonnet-4-20250514``, ``gpt-4o-2024-08-06``, etc.
+    by stripping version suffixes and matching against base names.
+    """
+    # Exact match first
+    pricing = PRICING.get(model)
+    if pricing is not None:
+        return pricing
+
+    # Try prefix matching: find the longest pricing key that is a prefix
+    best: ModelPricing | None = None
+    best_len = 0
+    for key, p in PRICING.items():
+        if model.startswith(key) and len(key) > best_len:
+            best = p
+            best_len = len(key)
+
+    return best
+
+
 def estimate_cost(tokens: int, model: str, direction: str = "input") -> float:
     """Estimate cost in USD for a given token count and model.
 
     Args:
         tokens: Number of tokens.
-        model: Model name (must match a key in ``PRICING``).
+        model: Model name (exact or versioned, e.g. ``claude-opus-4-6``).
         direction: ``"input"`` or ``"output"``.
 
     Returns:
         Estimated cost in USD.  Returns ``0.0`` if the model is unknown.
     """
-    pricing = PRICING.get(model)
+    pricing = _resolve_model(model)
     if pricing is None:
         return 0.0
 

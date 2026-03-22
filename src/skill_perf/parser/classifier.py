@@ -45,6 +45,15 @@ def classify_step(tool_name: str, tool_input: dict[str, str]) -> tuple[StepType,
     """
     name_lower = (tool_name or "").lower()
 
+    # Skill tool (Claude Code's built-in skill invocation)
+    if name_lower == "skill":
+        skill_name = tool_input.get("skill", "")
+        args = tool_input.get("args", "")
+        desc = f"Skill: {skill_name}"
+        if args:
+            desc += f" ({args})"
+        return "skill_load", desc, ""
+
     # File reading tools
     if name_lower in _READ_TOOLS:
         path = tool_input.get("path", tool_input.get("file_path", ""))

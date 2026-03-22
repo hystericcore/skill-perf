@@ -31,7 +31,7 @@ class CLIRunner:
         env["HTTPS_PROXY"] = f"http://localhost:{self.proxy_port}"
         env["HTTP_PROXY"] = f"http://localhost:{self.proxy_port}"
         # Trust the proxy CA
-        ca_path = os.path.expanduser("~/.mitmproxy/mitmproxy-ca-cert.pem")
+        ca_path = os.path.expanduser("~/.lli/ca-cert.pem")
         if os.path.exists(ca_path):
             env["NODE_EXTRA_CA_CERTS"] = ca_path
         return env

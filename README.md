@@ -108,7 +108,7 @@ Level 3 -- References (on demand)
 ### `skill-perf measure`
 
 Run a skill against one or more prompts and capture real token usage through a
-local mitmproxy instance.
+local llm-interceptor (lli) proxy.
 
 ```bash
 # Single prompt
@@ -199,9 +199,9 @@ skill-perf detects 8 built-in waste patterns:
 1. **Token counting** -- Uses `tiktoken` (cl100k_base) to count tokens in skill
    files, references, scripts, and captured API traffic.
 
-2. **Proxy capture** -- An optional `mitmproxy` addon intercepts API
-   requests/responses between the CLI tool (Claude, Aider, Cursor) and the LLM
-   provider, recording full request/response pairs as trace files.
+2. **Proxy capture** -- `llm-interceptor` (lli) runs a local proxy that intercepts
+   API requests/responses between the CLI tool (Claude, Aider, Cursor) and the LLM
+   provider, recording full request/response pairs as structured trace files.
 
 3. **Trace parsing** -- Trace files are parsed into structured conversation
    steps (system prompt, user message, tool calls, tool results, assistant

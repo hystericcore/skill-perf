@@ -1,0 +1,4 @@
+[
+  {"label": "csv-parser", "prompt": "Create a Python script that reads a CSV file"},
+  {"label": "rest-client", "prompt": "Write a Python REST API client with retry logic"}
+]

@@ -1,0 +1,101 @@
+{
+  "url": "https://api.anthropic.com/v1/messages",
+  "type": "request",
+  "body": {
+    "model": "claude-sonnet-4-20250514",
+    "max_tokens": 8096,
+    "system": [
+      {
+        "type": "text",
+        "text": "You are a coding assistant. Follow the SKILL.md instructions carefully."
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Fix the bug in the login handler"
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "I'll look at the login handler code."
+          },
+          {
+            "type": "tool_use",
+            "id": "tool_01",
+            "name": "Read",
+            "input": {
+              "file_path": "/project/SKILL.md"
+            }
+          },
+          {
+            "type": "tool_use",
+            "id": "tool_02",
+            "name": "Bash",
+            "input": {
+              "command": "python scripts/lint.py src/"
+            }
+          },
+          {
+            "type": "tool_use",
+            "id": "tool_03",
+            "name": "Grep",
+            "input": {
+              "pattern": "def login",
+              "path": "src/"
+            }
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "tool_01",
+            "content": "# SKILL.md\n\nThis skill handles authentication flows.\n\n## Rules\n- Always validate input\n- Use bcrypt for passwords"
+          },
+          {
+            "type": "tool_result",
+            "tool_use_id": "tool_02",
+            "content": "All checks passed."
+          },
+          {
+            "type": "tool_result",
+            "tool_use_id": "tool_03",
+            "content": "src/auth/handler.py:42: def login(request):"
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "I found the login handler. Let me read the file."
+          },
+          {
+            "type": "tool_use",
+            "id": "tool_04",
+            "name": "Read",
+            "input": {
+              "file_path": "src/auth/handler.py"
+            }
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "tool_04",
+            "content": "def login(request):\n    username = request.get('username')\n    password = request.get('password')\n    return authenticate(username, password)"
+          }
+        ]
+      }
+    ]
+  }
+}

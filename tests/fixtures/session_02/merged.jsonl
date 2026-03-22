@@ -1,0 +1,2 @@
+{"type": "request", "url": "https://api.openai.com/v1/chat/completions", "body": {"model": "gpt-4o", "messages": [{"role": "system", "content": "You are a helpful coding assistant."}, {"role": "user", "content": "Refactor the user service"}]}}
+{"type": "response", "url": "https://api.openai.com/v1/chat/completions", "body": {"id": "chatcmpl-xyz", "model": "gpt-4o", "choices": [{"message": {"role": "assistant", "content": "I'll refactor the user service."}}], "usage": {"prompt_tokens": 800, "completion_tokens": 200, "total_tokens": 1000}}}

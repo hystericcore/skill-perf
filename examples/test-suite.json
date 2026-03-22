@@ -1,0 +1,14 @@
+[
+  {
+    "label": "csv-parser",
+    "prompt": "Create a Python script that reads a CSV file and outputs summary statistics for each numeric column"
+  },
+  {
+    "label": "rest-client",
+    "prompt": "Write a Python REST API client with retry logic and proper error handling"
+  },
+  {
+    "label": "refactor-extract",
+    "prompt": "Refactor this code to extract the validation logic into a separate module"
+  }
+]

@@ -125,34 +125,59 @@ def _print_verification(comp: Comparison) -> None:
         sign = "+" if val > 0 else ""
         return f"{sign}{val:.1f}%"
 
+    # Check if we have pricing for the model
+    b_model = b.sessions[0].model if b.sessions else ""
+    show_cost = b.total_cost_usd > 0 or c.total_cost_usd > 0
+
     console.print()
     console.print("  [bold]VERIFICATION[/bold]")
     console.print("  " + "\u2550" * 43)
 
-    console.print(
-        f"  Baseline ({b.skill_name}):  "
-        f"{b.total_tokens:>8,} tokens  |  "
-        f"${b.total_cost_usd:.3f}"
-    )
-    console.print(
-        f"  Current  ({c.skill_name}):  "
-        f"{c.total_tokens:>8,} tokens  |  "
-        f"${c.total_cost_usd:.3f}"
-    )
+    if show_cost:
+        console.print(
+            f"  Baseline ({b.skill_name}):  "
+            f"{b.total_tokens:>8,} tokens  |  "
+            f"${b.total_cost_usd:.3f}"
+        )
+        console.print(
+            f"  Current  ({c.skill_name}):  "
+            f"{c.total_tokens:>8,} tokens  |  "
+            f"${c.total_cost_usd:.3f}"
+        )
+    else:
+        console.print(
+            f"  Baseline ({b.skill_name}):  "
+            f"{b.total_tokens:>8,} tokens"
+        )
+        console.print(
+            f"  Current  ({c.skill_name}):  "
+            f"{c.total_tokens:>8,} tokens"
+        )
+        if b_model:
+            console.print(
+                f"  [dim]Model: {b_model} (no pricing available)[/dim]"
+            )
     console.print("  " + " " * 18 + "\u2500" * 25)
 
     # Color the delta line based on improvement vs regression
     delta_color = "green" if comp.token_delta <= 0 else "red"
-    delta_line = (
-        f"  Improvement:   "
-        f"{_fmt_delta(comp.token_delta)} tokens  | "
-        f"{_fmt_delta(comp.cost_delta, prefix='$')}"
-    )
-    pct_line = (
-        f"                     "
-        f"{_fmt_pct(token_pct)}      |  "
-        f"{_fmt_pct(cost_pct)}"
-    )
+    if show_cost:
+        delta_line = (
+            f"  Improvement:   "
+            f"{_fmt_delta(comp.token_delta)} tokens  | "
+            f"{_fmt_delta(comp.cost_delta, prefix='$')}"
+        )
+        pct_line = (
+            f"                     "
+            f"{_fmt_pct(token_pct)}      |  "
+            f"{_fmt_pct(cost_pct)}"
+        )
+    else:
+        delta_line = (
+            f"  Improvement:   "
+            f"{_fmt_delta(comp.token_delta)} tokens"
+        )
+        pct_line = f"                     {_fmt_pct(token_pct)}"
     console.print(f"  [{delta_color}]{delta_line.strip()}[/{delta_color}]")
     console.print(f"  [{delta_color}]{pct_line.strip()}[/{delta_color}]")
 

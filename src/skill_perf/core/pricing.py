@@ -173,6 +173,11 @@ def _resolve_model(model: str) -> ModelPricing | None:
     return best
 
 
+def has_pricing(model: str) -> bool:
+    """Check if a model name can be resolved to a pricing entry."""
+    return _resolve_model(model) is not None
+
+
 def estimate_cost(tokens: int, model: str, direction: str = "input") -> float:
     """Estimate cost in USD for a given token count and model.
 

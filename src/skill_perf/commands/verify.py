@@ -155,8 +155,8 @@ def _print_verification(comp: Comparison) -> None:
                 f"  [dim]Model: {b_model} (no pricing available)[/dim]"
             )
     console.print(
-        f"  [dim]Cost = estimated max (before caching). "
-        f"Actual cost is lower with prompt caching.[/dim]"
+        "  [dim]Cost = estimated max (before caching). "
+        "Actual cost is lower with prompt caching.[/dim]"
     )
     console.print("  " + " " * 18 + "\u2500" * 25)
 
@@ -181,6 +181,39 @@ def _print_verification(comp: Comparison) -> None:
         pct_line = f"                     {_fmt_pct(token_pct)}"
     console.print(f"  [{delta_color}]{delta_line.strip()}[/{delta_color}]")
     console.print(f"  [{delta_color}]{pct_line.strip()}[/{delta_color}]")
+
+    # Category breakdown
+    b_session = b.sessions[0] if b.sessions else None
+    c_session = c.sessions[0] if c.sessions else None
+    if b_session and c_session:
+        b_by_type = b_session.tokens_by_type
+        c_by_type = c_session.tokens_by_type
+        all_types = sorted(
+            set(b_by_type) | set(c_by_type),
+            key=lambda t: -(b_by_type.get(t, 0) + c_by_type.get(t, 0)),
+        )
+
+        if all_types:
+            console.print()
+            console.print(
+                f"  {'Category':<22} {'Baseline':>10} {'Current':>10}"
+                f" {'Delta':>10}  {'Change':>8}"
+            )
+            console.print("  " + "\u2500" * 62)
+            for cat in all_types:
+                bv = b_by_type.get(cat, 0)
+                cv = c_by_type.get(cat, 0)
+                delta = cv - bv
+                pct = (delta / bv * 100) if bv > 0 else 0.0
+                sign = "+" if delta > 0 else ""
+                color = "green" if delta <= 0 else "red"
+                if delta == 0:
+                    color = "dim"
+                console.print(
+                    f"  {cat:<22} {bv:>10,} {cv:>10,}"
+                    f" [{color}]{sign}{delta:>+10,}[/{color}]"
+                    f"  [{color}]{sign}{pct:.1f}%[/{color}]"
+                )
 
     console.print()
 

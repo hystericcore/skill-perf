@@ -66,7 +66,12 @@ def _session(
 # ===========================================================================
 
 class TestDetectScriptNotExecuted:
-    def test_fires_when_skill_loaded_but_no_script(self):
+    def test_fires_when_skill_has_scripts_but_none_executed(self, tmp_path):
+        # Create a skill dir with scripts/
+        scripts_dir = tmp_path / "scripts"
+        scripts_dir.mkdir()
+        (scripts_dir / "process.py").write_text("print('hi')")
+
         steps = [
             _step(step_type="skill_load", description="Load SKILL.md", token_count=500),
             _step(
@@ -75,10 +80,21 @@ class TestDetectScriptNotExecuted:
             ),
             _step(step_type="tool_result", description="File content", token_count=300),
         ]
-        issues = detect_script_not_executed(steps)
+        issues = detect_script_not_executed(steps, skill_dir=str(tmp_path))
         assert len(issues) == 1
         assert issues[0].severity == "critical"
         assert issues[0].pattern == "script_not_executed"
+
+    def test_no_issue_when_skill_has_no_scripts_dir(self):
+        steps = [
+            _step(step_type="skill_load", description="Load SKILL.md", token_count=500),
+            _step(
+                step_type="tool_call", tool_name="Read",
+                description="Read file", token_count=200,
+            ),
+        ]
+        issues = detect_script_not_executed(steps)
+        assert len(issues) == 0
 
     def test_no_issue_when_script_executed(self):
         steps = [
@@ -308,14 +324,12 @@ class TestDiagnoseEngine:
             _step(step_type="tool_result", token_count=3000, description="big file"),
             # Will trigger oversized_skill (warning, impact 2000)
             _step(step_type="skill_load", token_count=5000, description="big skill"),
-            # Will trigger script_not_executed (critical)
         ]
         session = _session(steps=steps)
         issues = diagnose(session)
 
-        # Critical should come first
-        severities = [i.severity for i in issues]
-        assert severities[0] == "critical"
+        # All should be warnings in this case (no scripts dir = no critical)
+        assert len(issues) >= 2
 
         # Among warnings, higher impact first
         warnings = [i for i in issues if i.severity == "warning"]

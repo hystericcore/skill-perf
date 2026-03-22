@@ -23,18 +23,30 @@ def detect_script_not_executed(
 ) -> list[Issue]:
     """Skill has ``scripts/`` but the model did work manually.
 
-    Checks whether any ``skill_load`` steps exist (meaning a skill was loaded)
-    but no Bash calls execute a script.  Only fires when *skill_dir* contains
-    a ``scripts/`` directory or when ``skill_load`` steps are present.
+    Only fires when we can confirm the skill actually has a ``scripts/``
+    directory with files in it.  This requires either:
+    - *skill_dir* pointing to a directory containing ``scripts/``
+    - Or a ``skill_load`` step whose file_path parent contains ``scripts/``
     """
-    has_skill_load = any(s.step_type == "skill_load" for s in steps)
-
-    # If a skill_dir is provided, check if it actually has scripts
+    # Check if skill_dir has scripts/
     has_scripts_dir = False
-    if skill_dir and os.path.isdir(os.path.join(skill_dir, "scripts")):
-        has_scripts_dir = True
+    if skill_dir:
+        scripts_path = os.path.join(skill_dir, "scripts")
+        if os.path.isdir(scripts_path) and os.listdir(scripts_path):
+            has_scripts_dir = True
 
-    if not has_skill_load and not has_scripts_dir:
+    # If no skill_dir given, try to infer from skill_load steps
+    if not has_scripts_dir:
+        for step in steps:
+            if step.step_type == "skill_load" and step.file_path:
+                # Check if the skill's parent directory has scripts/
+                skill_parent = os.path.dirname(step.file_path)
+                scripts_path = os.path.join(skill_parent, "scripts")
+                if os.path.isdir(scripts_path) and os.listdir(scripts_path):
+                    has_scripts_dir = True
+                    break
+
+    if not has_scripts_dir:
         return []
 
     script_keywords = (

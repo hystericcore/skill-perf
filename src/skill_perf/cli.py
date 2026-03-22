@@ -14,6 +14,18 @@ app = typer.Typer(
 
 
 @app.command()
+def init(
+    output: str = typer.Argument(
+        ".", help="Directory to install SKILL.md and references/"
+    ),
+) -> None:
+    """Install the skill-perf SKILL.md for AI coding assistants."""
+    from skill_perf.commands.init import run_init
+
+    run_init(output_dir=output)
+
+
+@app.command()
 def estimate(
     paths: list[str] = typer.Argument(..., help="Path(s) to SKILL.md file(s) or directories"),
     compare: bool = typer.Option(False, "--compare", help="Compare multiple skill versions"),

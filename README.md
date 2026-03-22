@@ -233,6 +233,35 @@ You can define reusable prompt suites in JSON for repeatable benchmarking:
 
 See `examples/test-suite.json` for a complete example.
 
+## Using with AI Coding Assistants
+
+skill-perf includes a SKILL.md that teaches AI coding assistants (Claude Code,
+Cursor, Aider) how to interpret diagnose/suggest output and generate specific,
+context-aware SKILL.md fixes.
+
+```bash
+# Install the skill into your project
+skill-perf init
+
+# This creates:
+#   SKILL.md            - main skill instructions
+#   references/         - CLI reference and waste patterns guide
+```
+
+Then in your AI coding session:
+
+```bash
+# 1. Run diagnosis
+skill-perf diagnose ./traces/
+
+# 2. Ask the assistant to improve your skill based on the output
+# The SKILL.md teaches it how to interpret the results and write targeted fixes
+```
+
+The assistant will use actual file paths, step numbers, and token counts from
+the trace to generate copy-paste-ready SKILL.md patches — much more specific
+than the static template suggestions.
+
 ## Development
 
 ```bash

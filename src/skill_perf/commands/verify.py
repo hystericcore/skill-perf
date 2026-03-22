@@ -45,13 +45,10 @@ def _load_benchmark(trace_dir: str, label: str) -> BenchmarkResult:
 
     model = session.model or "claude-sonnet-4"
     total_tokens = session.total_estimated_tokens
-    total_cost = estimate_cost(
-        session.api_input_tokens, model, "input"
-    ) + estimate_cost(session.api_output_tokens, model, "output")
 
-    # Fall back to token-based estimate if API tokens are zero
-    if total_cost == 0.0 and total_tokens > 0:
-        total_cost = estimate_cost(total_tokens, model, "input")
+    # Use estimated tokens for cost (api_input_tokens only reflects the
+    # last API call, not the total across multi-turn conversations)
+    total_cost = estimate_cost(total_tokens, model, "input")
 
     return BenchmarkResult(
         run_id=str(uuid4())[:8],

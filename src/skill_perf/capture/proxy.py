@@ -32,7 +32,6 @@ class ProxyManager:
                     str(self.port),
                     "--output-dir",
                     self.trace_dir,
-                    "--no-ui",
                 ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

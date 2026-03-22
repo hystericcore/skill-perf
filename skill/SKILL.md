@@ -5,7 +5,7 @@ description: Analyze and improve LLM skill performance using skill-perf CLI
 
 # skill-perf
 
-Analyze, diagnose, and improve SKILL.md performance by measuring real token usage and detecting waste patterns.
+Analyze, diagnose, and improve SKILL.md performance using the skill-perf CLI tool. The tool is the source of truth for pattern detection, suggestions, and fixes.
 
 ## When to use
 
@@ -19,26 +19,27 @@ When the user asks to:
 
 ### Step 1: Estimate token footprint
 
-Run `skill-perf estimate <path-to-SKILL.md>` to check token counts, progressive disclosure levels, size warnings, and cost per call. No API needed.
+Run `skill-perf estimate <path-to-SKILL.md>` to check token counts, progressive disclosure levels, size warnings, and cost per call.
 
 ### Step 2: Diagnose captured traces
 
-Run `skill-perf diagnose <trace-directory>` to find waste patterns. Shows step-by-step breakdown, token distribution, severity-ranked issues, and think/act ratio.
+Run `skill-perf diagnose <trace-directory>` to detect waste patterns. Read the output — it contains step-by-step breakdowns, severity-ranked issues, and token impact.
 
-### Step 3: Get static suggestions
+### Step 3: Get fix suggestions
 
-Run `skill-perf suggest <trace-directory>` for template-based fixes. Use as a starting point.
+Run `skill-perf suggest <trace-directory>` to get actionable fixes from the tool. Each suggestion includes:
+- The waste pattern and severity
+- Which step triggered it
+- A concrete fix with example SKILL.md text
+- Estimated token savings
 
-### Step 4: Generate context-aware SKILL.md fixes
+### Step 4: Improve suggestions with trace context
 
-For each diagnosed issue, write a specific SKILL.md patch:
-1. Find the step index in the diagnose output
-2. Identify file paths, tool names, and token counts
-3. Write a directive instruction addressing the behavior
-4. Calculate estimated savings from impact_tokens
-
-See `references/patterns/` for fix strategies per pattern.
-See `references/fix-guidelines.md` for guidelines on writing effective fixes.
+The tool's suggestions are templates. Make them specific by referencing the diagnose output:
+- Use actual file paths and tool names from the trace
+- Reference specific step numbers and token counts
+- Use directive language: "ALWAYS", "NEVER", "FIRST do X before Y"
+- Quantify savings to justify the instruction
 
 ### Step 5: Verify improvements
 

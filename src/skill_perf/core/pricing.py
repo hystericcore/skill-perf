@@ -104,25 +104,71 @@ PRICING: dict[str, ModelPricing] = {
 }
 
 
-def _resolve_model(model: str) -> ModelPricing | None:
-    """Resolve a model name to pricing, with fuzzy matching.
+def _normalize_model_name(model: str) -> str:
+    """Normalize model names from various providers to a canonical form.
 
-    Handles versioned model names like ``claude-opus-4-6``,
-    ``claude-sonnet-4-20250514``, ``gpt-4o-2024-08-06``, etc.
-    by stripping version suffixes and matching against base names.
+    Handles:
+    - Bedrock ARNs: arn:aws:bedrock:...:anthropic.claude-sonnet-4-v2
+    - Provider prefixes: anthropic.claude-sonnet-4, openai/gpt-4o
+    - Custom suffixes: claude-sonnet-4-20250514, gpt-4o-2024-08-06
+    """
+    import re
+
+    name = model.strip()
+
+    # Strip Bedrock ARN prefix
+    # arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4
+    if "foundation-model/" in name:
+        name = name.split("foundation-model/")[-1]
+
+    # Strip provider prefixes: anthropic.claude-x, openai/gpt-x
+    for sep in (".", "/"):
+        if sep in name:
+            parts = name.split(sep)
+            # Only strip if prefix looks like a provider name
+            if parts[0].lower() in (
+                "anthropic", "openai", "google", "meta",
+                "mistral", "deepseek", "cohere",
+            ):
+                name = sep.join(parts[1:])
+
+    # Strip Bedrock-style version suffix: -v2:0, -v1
+    name = re.sub(r"-v\d+(?::\d+)?$", "", name)
+
+    return name
+
+
+def _resolve_model(model: str) -> ModelPricing | None:
+    """Resolve a model name to pricing, with normalization and fuzzy matching.
+
+    Handles versioned names, Bedrock ARNs, provider prefixes, and
+    date-stamped variants.
     """
     # Exact match first
     pricing = PRICING.get(model)
     if pricing is not None:
         return pricing
 
-    # Try prefix matching: find the longest pricing key that is a prefix
+    # Normalize and try again
+    normalized = _normalize_model_name(model)
+    pricing = PRICING.get(normalized)
+    if pricing is not None:
+        return pricing
+
+    # Try prefix matching on normalized name
     best: ModelPricing | None = None
     best_len = 0
     for key, p in PRICING.items():
-        if model.startswith(key) and len(key) > best_len:
+        if normalized.startswith(key) and len(key) > best_len:
             best = p
             best_len = len(key)
+
+    # Also try prefix matching on original (for bedrock-claude-* keys)
+    if best is None:
+        for key, p in PRICING.items():
+            if model.startswith(key) and len(key) > best_len:
+                best = p
+                best_len = len(key)
 
     return best
 

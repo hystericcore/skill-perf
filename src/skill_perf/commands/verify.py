@@ -204,7 +204,12 @@ def _print_verification(comp: Comparison) -> None:
                 bv = b_by_type.get(cat, 0)
                 cv = c_by_type.get(cat, 0)
                 delta = cv - bv
-                pct = (delta / bv * 100) if bv > 0 else 0.0
+                if bv > 0:
+                    pct_str = f"{delta / bv * 100:+.1f}%"
+                elif delta != 0:
+                    pct_str = "new"
+                else:
+                    pct_str = "—"
                 sign = "+" if delta > 0 else ""
                 color = "green" if delta <= 0 else "red"
                 if delta == 0:
@@ -212,7 +217,7 @@ def _print_verification(comp: Comparison) -> None:
                 console.print(
                     f"  {cat:<22} {bv:>10,} {cv:>10,}"
                     f" [{color}]{sign}{delta:>+10,}[/{color}]"
-                    f"  [{color}]{sign}{pct:.1f}%[/{color}]"
+                    f"  [{color}]{pct_str:>8}[/{color}]"
                 )
 
     console.print()

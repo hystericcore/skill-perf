@@ -236,18 +236,16 @@ See `examples/test-suite.json` for a complete example.
 ## Development
 
 ```bash
-git clone https://github.com/your-org/skill-perf.git
+git clone https://github.com/hystericcore/skill-perf.git
 cd skill-perf
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e ".[dev]"
 pytest
 ```
 
-Linting and type checking:
-
-```bash
-ruff check src/ tests/
-mypy src/
-```
+See [docs/development.md](docs/development.md) for the full development guide
+including project structure, testing, adding new patterns, and cleanup.
 
 ## License
 

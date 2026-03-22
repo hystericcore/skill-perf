@@ -93,6 +93,18 @@ def _print_session_report(
         table.add_row(cat, f"{tokens:,}", f"{pct:.1f}%", bar_text)
 
     console.print(table)
+    console.print(
+        "  [dim]system_prompt = LLM instructions | "
+        "user_message = conversation context[/dim]"
+    )
+    console.print(
+        "  [dim]tool_call = model actions (Bash, Edit, Grep) | "
+        "tool_result = data returned to model[/dim]"
+    )
+    console.print(
+        "  [dim]skill_load = SKILL.md & references loaded | "
+        "assistant_response = model output text[/dim]"
+    )
 
     # --- Think/act ratio ---
     console.print(f"\n  Think/act ratio: {session.think_act_ratio:.2f}x")

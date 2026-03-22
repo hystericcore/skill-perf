@@ -134,12 +134,12 @@ def _print_verification(comp: Comparison) -> None:
         console.print(
             f"  Baseline ({b.skill_name}):  "
             f"{b.total_tokens:>8,} tokens  |  "
-            f"${b.total_cost_usd:.3f}"
+            f"~${b.total_cost_usd:.3f}"
         )
         console.print(
             f"  Current  ({c.skill_name}):  "
             f"{c.total_tokens:>8,} tokens  |  "
-            f"${c.total_cost_usd:.3f}"
+            f"~${c.total_cost_usd:.3f}"
         )
     else:
         console.print(
@@ -154,6 +154,10 @@ def _print_verification(comp: Comparison) -> None:
             console.print(
                 f"  [dim]Model: {b_model} (no pricing available)[/dim]"
             )
+    console.print(
+        f"  [dim]Cost = estimated max (before caching). "
+        f"Actual cost is lower with prompt caching.[/dim]"
+    )
     console.print("  " + " " * 18 + "\u2500" * 25)
 
     # Color the delta line based on improvement vs regression
@@ -162,7 +166,7 @@ def _print_verification(comp: Comparison) -> None:
         delta_line = (
             f"  Improvement:   "
             f"{_fmt_delta(comp.token_delta)} tokens  | "
-            f"{_fmt_delta(comp.cost_delta, prefix='$')}"
+            f"~{_fmt_delta(comp.cost_delta, prefix='$')}"
         )
         pct_line = (
             f"                     "

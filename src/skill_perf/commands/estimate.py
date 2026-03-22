@@ -263,7 +263,7 @@ def print_estimate(estimate: SkillEstimate) -> None:
             out.print(f"  [bold yellow]WARNING:[/bold yellow] {w}")
 
     # -- Costs --
-    out.rule("Cost per call (full load)")
+    out.rule("Cost per call (skill loaded into context)")
     # Show a curated subset for readability
     display_models = [
         "claude-sonnet-4",

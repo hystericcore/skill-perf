@@ -13,6 +13,7 @@ from skill_perf.diagnosis.patterns import (
     detect_low_cache_rate,
     detect_oversized_skill,
     detect_script_not_executed,
+    detect_skill_not_triggered,
 )
 from skill_perf.models.diagnosis import Issue
 from skill_perf.models.session import SessionAnalysis
@@ -46,8 +47,9 @@ def diagnose(
     """Run all pattern detectors and return issues sorted by severity then impact_tokens."""
     issues: list[Issue] = []
 
-    # script_not_executed needs both steps and skill_dir
+    # Detectors that need both steps and skill_dir
     issues.extend(detect_script_not_executed(session.steps, skill_dir=skill_dir))
+    issues.extend(detect_skill_not_triggered(session.steps, skill_dir=skill_dir))
 
     # Step-level detectors
     for detector in _STEP_DETECTORS:

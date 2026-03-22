@@ -1,4 +1,4 @@
-"""Tests for the diagnosis module — 8 pattern detectors + engine + CLI."""
+"""Tests for the diagnosis module — 9 pattern detectors + engine + CLI."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from skill_perf.diagnosis.patterns import (
     detect_low_cache_rate,
     detect_oversized_skill,
     detect_script_not_executed,
+    detect_skill_not_triggered,
 )
 from skill_perf.models.session import SessionAnalysis
 from skill_perf.models.step import ConversationStep
@@ -299,6 +300,74 @@ class TestDetectHighThinkRatio:
         assert len(issues) == 1
         assert issues[0].severity == "info"
         assert issues[0].pattern == "high_think_ratio"
+
+
+# ===========================================================================
+# Pattern 9: skill_not_triggered
+# ===========================================================================
+
+class TestDetectSkillNotTriggered:
+    def test_fires_when_prompt_matches_but_no_skill_load(self, tmp_path):
+        # Create a skill with description matching the prompt
+        skill_md = tmp_path / "SKILL.md"
+        skill_md.write_text(
+            "---\n"
+            "name: csv-processor\n"
+            "description: Processes CSV files with summary statistics\n"
+            "---\n\n# CSV Processor\n"
+        )
+        steps = [
+            _step(
+                step_type="user_message",
+                description="User prompt",
+                token_count=20,
+                raw_content_preview="Process this CSV file and show statistics",
+            ),
+            _step(step_type="tool_call", tool_name="Bash", token_count=50),
+        ]
+        issues = detect_skill_not_triggered(steps, skill_dir=str(tmp_path))
+        assert len(issues) == 1
+        assert issues[0].pattern == "skill_not_triggered"
+        assert "csv-processor" in issues[0].description
+
+    def test_no_issue_when_skill_was_loaded(self, tmp_path):
+        skill_md = tmp_path / "SKILL.md"
+        skill_md.write_text(
+            "---\nname: test\ndescription: test skill\n---\n"
+        )
+        steps = [
+            _step(step_type="user_message", token_count=20,
+                  raw_content_preview="test something"),
+            _step(step_type="skill_load", token_count=100),
+        ]
+        issues = detect_skill_not_triggered(steps, skill_dir=str(tmp_path))
+        assert len(issues) == 0
+
+    def test_no_issue_when_prompt_doesnt_match(self, tmp_path):
+        skill_md = tmp_path / "SKILL.md"
+        skill_md.write_text(
+            "---\n"
+            "name: csv-processor\n"
+            "description: Processes CSV files with summary statistics\n"
+            "---\n"
+        )
+        steps = [
+            _step(
+                step_type="user_message",
+                token_count=20,
+                raw_content_preview="Deploy the application to production",
+            ),
+        ]
+        issues = detect_skill_not_triggered(steps, skill_dir=str(tmp_path))
+        assert len(issues) == 0
+
+    def test_no_issue_without_skill_dir(self):
+        steps = [
+            _step(step_type="user_message", token_count=20,
+                  raw_content_preview="Process CSV"),
+        ]
+        issues = detect_skill_not_triggered(steps, skill_dir=None)
+        assert len(issues) == 0
 
     def test_no_issue_when_ratio_normal(self):
         session = _session(

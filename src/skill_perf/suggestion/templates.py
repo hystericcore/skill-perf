@@ -1,4 +1,4 @@
-"""Suggestion templates for all 8 diagnosis patterns."""
+"""Suggestion templates for all 9 diagnosis patterns."""
 
 from __future__ import annotations
 
@@ -55,4 +55,14 @@ TEMPLATES: dict[str, str] = {
   When a task can be accomplished with a script or tool call,
   use the tool directly instead of writing out the solution.
   Be concise in your responses.""",
+    "skill_not_triggered": """Improve the skill's trigger conditions:
+
+  1. Review the skill description in SKILL.md frontmatter
+  2. Add keywords that match how users phrase their requests
+  3. Make the description more specific about what the skill handles
+  4. Consider adding trigger examples in the description
+
+  The description field determines when the skill is activated.
+  If users ask relevant questions but the skill doesn't trigger,
+  the description needs to better match their language.""",
 }

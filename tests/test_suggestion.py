@@ -22,6 +22,7 @@ ALL_PATTERNS = [
     "cat_on_large_file",
     "low_cache_rate",
     "high_think_ratio",
+    "skill_not_triggered",
 ]
 
 runner = CliRunner()
@@ -170,12 +171,12 @@ class TestEstimateSavings:
 
 
 class TestTemplatesAllPatternsCovered:
-    def test_all_8_patterns_exist(self) -> None:
+    def test_all_9_patterns_exist(self) -> None:
         for pattern in ALL_PATTERNS:
             assert pattern in TEMPLATES, f"Missing template for pattern: {pattern}"
 
-    def test_exactly_8_templates(self) -> None:
-        assert len(TEMPLATES) == 8
+    def test_exactly_9_templates(self) -> None:
+        assert len(TEMPLATES) == 9
 
     def test_no_empty_templates(self) -> None:
         for pattern, template in TEMPLATES.items():

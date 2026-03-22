@@ -8,6 +8,7 @@ objects describing diagnosed problems.
 from __future__ import annotations
 
 import os
+import re
 
 from skill_perf.models.diagnosis import Issue
 from skill_perf.models.session import SessionAnalysis
@@ -364,6 +365,152 @@ def detect_high_think_ratio(session: SessionAnalysis) -> list[Issue]:
                 "Consider making skill instructions more directive so "
                 "the model acts rather than explains. Add explicit "
                 "'do not explain, just do' directives."
+            ),
+        )
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Pattern 9 — Skill not triggered
+# ---------------------------------------------------------------------------
+
+def _extract_user_prompt(steps: list[ConversationStep]) -> str:
+    """Extract the first real user prompt from the steps.
+
+    Skips system-injected content (tool definitions, deferred-tools blocks)
+    and returns the actual user-authored message.
+    """
+    for step in steps:
+        if step.step_type != "user_message":
+            continue
+        preview = step.raw_content_preview
+        # Skip system-injected content
+        if preview.startswith("<available-deferred-tools>"):
+            continue
+        if preview.startswith("<system-reminder>"):
+            continue
+        if len(preview.strip()) < 5:
+            continue
+        return preview
+    return ""
+
+
+def _load_skill_description(skill_dir: str) -> tuple[str, str]:
+    """Load skill name and description from SKILL.md frontmatter.
+
+    Returns (name, description).
+    """
+    skill_md = os.path.join(skill_dir, "SKILL.md")
+    if not os.path.isfile(skill_md):
+        # Try common variants
+        for name in ("skill.md", "SKILL.MD"):
+            candidate = os.path.join(skill_dir, name)
+            if os.path.isfile(candidate):
+                skill_md = candidate
+                break
+        else:
+            return "", ""
+
+    try:
+        with open(skill_md) as f:
+            content = f.read()
+    except OSError:
+        return "", ""
+
+    # Parse YAML frontmatter
+    match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
+    if not match:
+        return "", ""
+
+    frontmatter = match.group(1)
+    name = ""
+    description = ""
+    for line in frontmatter.split("\n"):
+        if line.startswith("name:"):
+            name = line[5:].strip().strip("'\"")
+        elif line.startswith("description:"):
+            description = line[12:].strip().strip("'\"")
+
+    return name, description
+
+
+def _keywords_match(prompt: str, description: str, threshold: int = 2) -> bool:
+    """Check if enough keywords from the description appear in the prompt."""
+    if not prompt or not description:
+        return False
+
+    # Extract meaningful words (skip common words)
+    stop_words = {
+        "a", "an", "the", "and", "or", "to", "in", "on", "for", "of",
+        "is", "are", "was", "were", "be", "been", "with", "that", "this",
+        "from", "by", "at", "as", "it", "its", "use", "when", "can",
+        "do", "does", "new", "will", "how", "what", "which",
+    }
+
+    desc_words = {
+        w.lower() for w in re.findall(r"\w+", description)
+        if len(w) > 2 and w.lower() not in stop_words
+    }
+    prompt_lower = prompt.lower()
+
+    matches = sum(1 for w in desc_words if w in prompt_lower)
+    return matches >= threshold
+
+
+def detect_skill_not_triggered(
+    steps: list[ConversationStep],
+    skill_dir: str | None = None,
+) -> list[Issue]:
+    """Skill exists and prompt matches its description, but it was never loaded.
+
+    Only fires when *skill_dir* is provided and the skill's description
+    keywords match the user prompt, but no ``skill_load`` step appears.
+    """
+    if not skill_dir:
+        return []
+
+    # Check if skill was loaded
+    has_skill_load = any(s.step_type == "skill_load" for s in steps)
+    if has_skill_load:
+        return []
+
+    # Load skill description
+    name, description = _load_skill_description(skill_dir)
+    if not description:
+        return []
+
+    # Extract user prompt
+    prompt = _extract_user_prompt(steps)
+    if not prompt:
+        return []
+
+    # Check if prompt matches skill description
+    if not _keywords_match(prompt, description):
+        return []
+
+    # Find the first user_message step as anchor
+    anchor = 0
+    for i, step in enumerate(steps):
+        if step.step_type == "user_message":
+            anchor = i
+            break
+
+    return [
+        Issue(
+            severity="warning",
+            pattern="skill_not_triggered",
+            step_index=anchor,
+            description=(
+                f"Skill '{name or 'unknown'}' was not triggered, but the "
+                f"prompt appears to match its description. The skill's "
+                f"trigger conditions or description may need improvement."
+            ),
+            impact_tokens=0,
+            suggestion=(
+                "Review the skill's description and trigger conditions. "
+                "The description should contain keywords that match "
+                "the types of prompts users will give. Consider making "
+                "the description more specific or adding trigger keywords."
             ),
         )
     ]

@@ -69,7 +69,10 @@ class TestDetectScriptNotExecuted:
     def test_fires_when_skill_loaded_but_no_script(self):
         steps = [
             _step(step_type="skill_load", description="Load SKILL.md", token_count=500),
-            _step(step_type="tool_call", tool_name="Read", description="Read file", token_count=200),
+            _step(
+                step_type="tool_call", tool_name="Read",
+                description="Read file", token_count=200,
+            ),
             _step(step_type="tool_result", description="File content", token_count=300),
         ]
         issues = detect_script_not_executed(steps)
@@ -122,9 +125,15 @@ class TestDetectLargeFileRead:
 class TestDetectDuplicateReads:
     def test_fires_on_same_file_read_twice(self):
         steps = [
-            _step(step_type="tool_call", file_path="/src/main.py", token_count=50, tool_name="Read"),
+            _step(
+                step_type="tool_call", file_path="/src/main.py",
+                token_count=50, tool_name="Read",
+            ),
             _step(step_type="tool_result", token_count=200),
-            _step(step_type="tool_call", file_path="/src/main.py", token_count=50, tool_name="Read"),
+            _step(
+                step_type="tool_call", file_path="/src/main.py",
+                token_count=50, tool_name="Read",
+            ),
             _step(step_type="tool_result", token_count=200),
         ]
         issues = detect_duplicate_reads(steps)

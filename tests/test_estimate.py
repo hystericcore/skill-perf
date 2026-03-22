@@ -6,12 +6,10 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from skill_perf.cli import app
 from skill_perf.commands.estimate import (
-    SkillEstimate,
     analyze_skill_dir,
 )
 
@@ -45,12 +43,12 @@ class TestAnalyzeSkillDir:
 
         level3_labels = [f.label for f in est.files if f.level == 3]
         # Should discover guide.md in references/
-        ref_labels = [l for l in level3_labels if "guide.md" in l]
+        ref_labels = [lb for lb in level3_labels if "guide.md" in lb]
         assert len(ref_labels) == 1
         assert "references/guide.md" in ref_labels[0]
 
         # Should discover process.py in scripts/
-        script_labels = [l for l in level3_labels if "process.py" in l]
+        script_labels = [lb for lb in level3_labels if "process.py" in lb]
         assert len(script_labels) == 1
         assert "(exec only)" in script_labels[0]
 

@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
-from skill_perf.parser.providers import detect_provider
 from skill_perf.parser.classifier import classify_step
 from skill_perf.parser.messages import parse_request, parse_response_usage
+from skill_perf.parser.providers import detect_provider
 from skill_perf.parser.streaming import parse_sse_response
 from skill_perf.parser.trace_reader import parse_session
 
@@ -31,7 +29,8 @@ class TestDetectProvider:
         assert detect_provider("https://generativelanguage.googleapis.com/v1/models") == "google"
 
     def test_detect_provider_bedrock(self):
-        assert detect_provider("https://bedrock-runtime.us-east-1.amazonaws.com/invoke") == "aws-bedrock"
+        url = "https://bedrock-runtime.us-east-1.amazonaws.com/invoke"
+        assert detect_provider(url) == "aws-bedrock"
 
 
 # ── Step classification ─────────────────────────────────────────────
@@ -218,6 +217,7 @@ class TestParseSSE:
 
 class TestParseSession:
     def test_parse_session_split_output(self):
+        """Session 01: lli split_output format with waste patterns."""
         session = parse_session(str(FIXTURES / "session_01"))
         assert session.session_id == "session_01"
         assert session.model == "claude-sonnet-4-20250514"
@@ -225,7 +225,7 @@ class TestParseSession:
         assert session.api_output_tokens == 350
         assert len(session.steps) > 0
 
-        # Check we have system prompt
+        # Check we have system prompt (list-format system key)
         system_steps = [s for s in session.steps if s.step_type == "system_prompt"]
         assert len(system_steps) == 1
 
@@ -238,22 +238,73 @@ class TestParseSession:
         tool_calls = [s for s in session.steps if s.step_type == "tool_call"]
         assert len(tool_calls) >= 2
 
-        # Check tool_result steps (from user content blocks)
+        # Check tool_result steps (from user content blocks with tool_result)
         tool_results = [s for s in session.steps if s.step_type == "tool_result"]
         assert len(tool_results) >= 1
 
-    def test_parse_session_merged_jsonl(self):
+        # Waste: duplicate Read on src/main.py should produce two tool_result steps
+        main_py_steps = [
+            s for s in session.steps
+            if s.file_path and "src/main.py" in s.file_path
+        ]
+        assert len(main_py_steps) >= 2
+
+        # Waste: large tool_result > 2000 tokens should exist
+        large_results = [
+            s for s in session.steps
+            if s.step_type == "tool_result" and s.token_count > 2000
+        ]
+        assert len(large_results) >= 1
+
+        # Telemetry request (null body) should be skipped
+        # (only the /v1/messages request produces steps)
+
+    def test_parse_session_lli_native(self):
+        """Session 02: lli native JSONL with response_chunk format."""
         session = parse_session(str(FIXTURES / "session_02"))
         assert session.session_id == "session_02"
-        assert session.model == "gpt-4o"
-        assert session.api_input_tokens == 800
-        assert session.api_output_tokens == 200
+        assert session.model == "claude-sonnet-4-20250514"
+        # input = input_tokens (1200) + cache_creation (300) + cache_read (0)
+        assert session.api_input_tokens == 1500
+        assert session.api_output_tokens == 425
         assert len(session.steps) > 0
 
-        # OpenAI format: system message is in messages array, not top-level
-        # The fixture uses "system" role in messages; our parse_request
-        # only handles top-level "system" key, so this becomes a user message
-        # at turn 1. The response has usage with prompt_tokens.
+        # System prompt from list-format system key
+        system_steps = [s for s in session.steps if s.step_type == "system_prompt"]
+        assert len(system_steps) == 1
+
+        # User message
+        user_steps = [s for s in session.steps if s.step_type == "user_message"]
+        assert len(user_steps) >= 1
+
+    def test_parse_session_lli_native_waste_patterns(self):
+        """Session 03: lli native JSONL with waste patterns for diagnosis."""
+        session = parse_session(str(FIXTURES / "session_03"))
+        assert session.session_id == "session_03"
+        assert session.model == "claude-sonnet-4-20250514"
+        # input = input_tokens (4500) + cache_creation (2000) + cache_read (0)
+        assert session.api_input_tokens == 6500
+        assert session.api_output_tokens == 180
+        assert len(session.steps) > 0
+
+        # Should detect skill_load (SKILL.md)
+        skill_steps = [s for s in session.steps if s.step_type == "skill_load"]
+        assert len(skill_steps) >= 1
+
+        # Should have 6 consecutive Grep/Glob tool calls for excessive_exploration
+        tool_calls = [s for s in session.steps if s.step_type == "tool_call"]
+        search_calls = [
+            s for s in tool_calls
+            if s.tool_name in ("Grep", "Glob")
+        ]
+        assert len(search_calls) >= 6
+
+        # Should have high assistant_response tokens (high think/act ratio)
+        assistant_steps = [
+            s for s in session.steps
+            if s.step_type == "assistant_response"
+        ]
+        assert sum(s.token_count for s in assistant_steps) > 2000
 
     def test_parse_session_nonexistent(self):
         session = parse_session("/tmp/nonexistent_session_xyz")

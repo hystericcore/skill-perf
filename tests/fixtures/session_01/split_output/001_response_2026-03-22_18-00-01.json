@@ -1,0 +1,8 @@
+{
+  "type": "response",
+  "request_id": "a1b2c3d4-0001-4000-8000-000000000001",
+  "status_code": 200,
+  "body": {"success": true},
+  "latency_ms": 45,
+  "timestamp": "2026-03-22T18:00:01Z"
+}

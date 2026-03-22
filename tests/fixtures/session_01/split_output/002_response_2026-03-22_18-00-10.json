@@ -1,0 +1,26 @@
+{
+  "type": "response",
+  "request_id": "a1b2c3d4-0002-4000-8000-000000000002",
+  "status_code": 200,
+  "body": {
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "text",
+        "text": "I've identified the bug and fixed it."
+      }
+    ],
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 1500,
+      "cache_creation_input_tokens": 5000,
+      "cache_read_input_tokens": 0,
+      "output_tokens": 350
+    },
+    "id": "msg_01abc",
+    "model": "claude-sonnet-4-20250514"
+  },
+  "latency_ms": 9725,
+  "timestamp": "2026-03-22T18:00:10Z"
+}

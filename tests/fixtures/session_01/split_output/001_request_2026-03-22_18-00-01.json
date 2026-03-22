@@ -1,0 +1,10 @@
+{
+  "_session_id": null,
+  "type": "request",
+  "id": "a1b2c3d4-0001-4000-8000-000000000001",
+  "timestamp": "2026-03-22T18:00:01Z",
+  "method": "POST",
+  "url": "https://statsig.anthropic.com/v1/rgstr",
+  "headers": {},
+  "body": null
+}

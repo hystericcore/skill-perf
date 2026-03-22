@@ -8,7 +8,6 @@ from skill_perf.models.step import ConversationStep
 from skill_perf.report.html import generate_html_report
 from skill_perf.report.treemap import build_treemap
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

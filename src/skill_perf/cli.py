@@ -16,13 +16,19 @@ app = typer.Typer(
 @app.command()
 def init(
     output: str = typer.Argument(
-        ".", help="Directory to install SKILL.md and references/"
+        ".", help="Target project directory (default: current directory)"
+    ),
+    global_install: bool = typer.Option(
+        False, "--global", help="Install globally to ~/.claude/agents/"
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Overwrite existing skill files"
     ),
 ) -> None:
-    """Install the skill-perf SKILL.md for AI coding assistants."""
+    """Install the skill-perf skill for AI coding assistants."""
     from skill_perf.commands.init import run_init
 
-    run_init(output_dir=output)
+    run_init(output_dir=output, global_install=global_install, force=force)
 
 
 @app.command()

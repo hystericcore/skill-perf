@@ -235,31 +235,43 @@ See `examples/test-suite.json` for a complete example.
 
 ## Using with AI Coding Assistants
 
-skill-perf includes a SKILL.md that teaches AI coding assistants (Claude Code,
+skill-perf includes a skill that teaches AI coding assistants (Claude Code,
 Cursor, Aider) how to interpret diagnose/suggest output and generate specific,
 context-aware SKILL.md fixes.
 
+### Install the skill
+
 ```bash
-# Install the skill into your project
+# Install to your current project (workspace-level)
 skill-perf init
 
-# This creates:
-#   SKILL.md            - main skill instructions
-#   references/         - CLI reference and waste patterns guide
+# Or install globally for all projects
+skill-perf init --global
+
+# Overwrite existing installation
+skill-perf init --force
 ```
 
-Then in your AI coding session:
+**Workspace install** creates `.claude/skills/skill-perf.md` in your project --
+the skill is auto-discovered by Claude Code for that project.
+
+**Global install** creates `~/.claude/agents/skill-perf.md` -- available across
+all your projects.
+
+### Use the skill
+
+In your AI coding session:
 
 ```bash
-# 1. Run diagnosis
+# 1. Run diagnosis on captured traces
 skill-perf diagnose ./traces/
 
 # 2. Ask the assistant to improve your skill based on the output
-# The SKILL.md teaches it how to interpret the results and write targeted fixes
+# The skill teaches it how to interpret results and write targeted fixes
 ```
 
 The assistant will use actual file paths, step numbers, and token counts from
-the trace to generate copy-paste-ready SKILL.md patches — much more specific
+the trace to generate copy-paste-ready SKILL.md patches -- much more specific
 than the static template suggestions.
 
 ## Development

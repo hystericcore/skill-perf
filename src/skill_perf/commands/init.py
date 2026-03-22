@@ -10,11 +10,11 @@ from rich.console import Console
 
 console = Console()
 
-SKILL_FILENAME = "skill-perf.md"
+SKILL_DIR_NAME = "skill-perf"
 GITHUB_URL = "https://github.com/hystericcore/skill-perf"
 
 
-def _get_skill_dir() -> str:
+def _get_skill_source_dir() -> str:
     """Get the path to the bundled skill/ directory in the package."""
     ref = importlib.resources.files("skill_perf")
     # Go up from src/skill_perf/ to project root, then into skill/
@@ -28,40 +28,30 @@ def _get_skill_dir() -> str:
     return skill_dir
 
 
-def _install_skill(
-    target_dir: str,
-    skill_filename: str,
-    force: bool = False,
-) -> None:
-    """Copy the skill file and references to the target directory."""
-    skill_src_dir = _get_skill_dir()
-    skill_src = os.path.join(skill_src_dir, SKILL_FILENAME)
-    refs_src = os.path.join(skill_src_dir, "references")
+def _copy_skill_to(target_dir: str, force: bool = False) -> None:
+    """Copy the entire skill directory (SKILL.md + references/) to target.
 
-    os.makedirs(target_dir, exist_ok=True)
+    Creates target_dir/skill-perf/ with SKILL.md and references/ inside.
+    This matches Claude Code's expected layout: skills/{name}/SKILL.md.
+    """
+    src_dir = _get_skill_source_dir()
+    dst_dir = os.path.join(target_dir, SKILL_DIR_NAME)
 
-    skill_dst = os.path.join(target_dir, skill_filename)
-    refs_dst = os.path.join(target_dir, "references")
-
-    # Copy skill file
-    if os.path.exists(skill_dst) and not force:
+    if os.path.exists(dst_dir) and not force:
         console.print(
-            f"[yellow]Already exists:[/yellow] {skill_dst} (use --force to overwrite)"
+            f"[yellow]Already exists:[/yellow] {dst_dir}/ "
+            f"(use --force to overwrite)"
         )
-    else:
-        shutil.copy2(skill_src, skill_dst)
-        console.print(f"[green]Created[/green] {skill_dst}")
+        return
 
-    # Copy references/
-    if os.path.exists(refs_dst) and not force:
-        console.print(
-            f"[yellow]Already exists:[/yellow] {refs_dst}/ (use --force to overwrite)"
-        )
-    else:
-        if os.path.exists(refs_dst):
-            shutil.rmtree(refs_dst)
-        shutil.copytree(refs_src, refs_dst)
-        console.print(f"[green]Created[/green] {refs_dst}/")
+    if os.path.exists(dst_dir):
+        shutil.rmtree(dst_dir)
+
+    shutil.copytree(src_dir, dst_dir)
+    console.print(f"[green]Created[/green] {dst_dir}/SKILL.md")
+    refs = os.path.join(dst_dir, "references")
+    if os.path.isdir(refs):
+        console.print(f"[green]Created[/green] {dst_dir}/references/")
 
 
 def run_init(
@@ -71,27 +61,30 @@ def run_init(
 ) -> None:
     """Install the skill-perf skill for AI coding assistants."""
     if global_install:
-        # Install to ~/.claude/agents/ (available in all projects)
+        # Install to ~/.claude/agents/skill-perf/ (available in all projects)
         target = os.path.expanduser("~/.claude/agents")
-        _install_skill(target, SKILL_FILENAME, force=force)
+        os.makedirs(target, exist_ok=True)
+        _copy_skill_to(target, force=force)
         console.print()
         console.print("[bold]skill-perf skill installed globally.[/bold]")
         console.print(
-            f"[dim]Location:[/dim] {target}/{SKILL_FILENAME}"
+            f"[dim]Location:[/dim] ~/.claude/agents/{SKILL_DIR_NAME}/SKILL.md"
         )
     else:
-        # Install to .claude/skills/ in the target directory (workspace-level)
+        # Install to .claude/skills/skill-perf/ in the target directory
         target = os.path.join(output_dir, ".claude", "skills")
-        _install_skill(target, SKILL_FILENAME, force=force)
+        os.makedirs(target, exist_ok=True)
+        _copy_skill_to(target, force=force)
         console.print()
         console.print("[bold]skill-perf skill installed to workspace.[/bold]")
         console.print(
-            f"[dim]Location:[/dim] {target}/{SKILL_FILENAME}"
+            f"[dim]Location:[/dim] "
+            f".claude/skills/{SKILL_DIR_NAME}/SKILL.md"
         )
 
     console.print()
     console.print("[dim]Next steps:[/dim]")
-    console.print("  1. Reload plugins in your AI assistant")
+    console.print("  1. Run /reload-plugins in your AI assistant")
     console.print("  2. Run: skill-perf diagnose ./traces/")
     console.print(
         "  3. Ask your assistant to improve your skill based on the output"

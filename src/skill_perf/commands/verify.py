@@ -219,6 +219,18 @@ def _print_verification(comp: Comparison) -> None:
                     f" [{color}]{sign}{delta:>+10,}[/{color}]"
                     f"  [{color}]{pct_str:>8}[/{color}]"
                 )
+            console.print(
+                "  [dim]system_prompt = LLM instructions | "
+                "user_message = conversation context[/dim]"
+            )
+            console.print(
+                "  [dim]tool_call = model actions (Bash, Edit, Grep) | "
+                "tool_result = data returned to model[/dim]"
+            )
+            console.print(
+                "  [dim]skill_load = SKILL.md & references loaded | "
+                "assistant_response = model output text[/dim]"
+            )
 
     console.print()
 

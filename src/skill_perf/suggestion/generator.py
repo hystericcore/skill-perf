@@ -26,8 +26,20 @@ def generate_suggestion(issue: Issue, session: SessionAnalysis) -> str:
     # Safe access to the step
     if 0 <= issue.step_index < len(session.steps):
         step = session.steps[issue.step_index]
-        context["file_path"] = step.file_path or "unknown file"
-        context["tool_name"] = step.tool_name or "unknown tool"
+        file_path = step.file_path
+        tool_name = step.tool_name
+
+        # If this is a tool_result with no file_path, look backwards
+        # for the preceding tool_call that has the file path
+        if not file_path and step.step_type == "tool_result":
+            for prev in reversed(session.steps[: issue.step_index]):
+                if prev.step_type == "tool_call" and prev.file_path:
+                    file_path = prev.file_path
+                    tool_name = tool_name or prev.tool_name
+                    break
+
+        context["file_path"] = file_path or "unknown file"
+        context["tool_name"] = tool_name or "unknown tool"
         context["token_count"] = f"{step.token_count:,}"
         context["step_index"] = str(issue.step_index)
         context["raw_preview"] = (

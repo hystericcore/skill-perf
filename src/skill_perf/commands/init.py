@@ -16,7 +16,6 @@ GITHUB_URL = "https://github.com/hystericcore/skill-perf"
 def _get_skill_source_dir() -> str:
     """Get the path to the bundled skill/ directory in the package."""
     ref = importlib.resources.files("skill_perf")
-    # Go up from src/skill_perf/ to project root, then into skill/
     pkg_path = str(ref.joinpath("..", ".."))
     skill_dir = os.path.realpath(os.path.join(pkg_path, "skill"))
     if not os.path.isdir(skill_dir):
@@ -28,50 +27,48 @@ def _get_skill_source_dir() -> str:
     return skill_dir
 
 
-def _copy_skill_to(target_dir: str, force: bool = False) -> None:
-    """Copy the entire skill directory (SKILL.md + references/) to target.
+def _copy_skill_to(target_dir: str, keep: bool = False) -> None:
+    """Copy the skill directory to target.
 
-    Creates target_dir/skill-perf/ with SKILL.md and references/ inside.
-    This matches Claude Code's expected layout: skills/{name}/SKILL.md.
+    By default, overwrites existing installation (ensures latest version).
+    Use ``keep=True`` to skip if already installed.
     """
     src_dir = _get_skill_source_dir()
     dst_dir = os.path.join(target_dir, SKILL_DIR_NAME)
 
-    if os.path.exists(dst_dir) and not force:
-        console.print(
-            f"[yellow]Already exists:[/yellow] {dst_dir}/ "
-            f"(use --force to overwrite)"
-        )
-        return
-
     if os.path.exists(dst_dir):
+        if keep:
+            console.print(
+                f"[dim]Already installed:[/dim] {dst_dir}/ (skipped)"
+            )
+            return
         shutil.rmtree(dst_dir)
+        console.print(f"[green]Updated[/green] {dst_dir}/SKILL.md")
+    else:
+        console.print(f"[green]Created[/green] {dst_dir}/SKILL.md")
 
     shutil.copytree(src_dir, dst_dir)
-    console.print(f"[green]Created[/green] {dst_dir}/SKILL.md")
 
 
 def run_init(
     output_dir: str = ".",
     global_install: bool = False,
-    force: bool = False,
+    keep: bool = False,
 ) -> None:
     """Install the skill-perf skill for AI coding assistants."""
     if global_install:
-        # Install to ~/.claude/agents/skill-perf/ (available in all projects)
         target = os.path.expanduser("~/.claude/agents")
         os.makedirs(target, exist_ok=True)
-        _copy_skill_to(target, force=force)
+        _copy_skill_to(target, keep=keep)
         console.print()
         console.print("[bold]skill-perf skill installed globally.[/bold]")
         console.print(
             f"[dim]Location:[/dim] ~/.claude/agents/{SKILL_DIR_NAME}/SKILL.md"
         )
     else:
-        # Install to .claude/skills/skill-perf/ in the target directory
         target = os.path.join(output_dir, ".claude", "skills")
         os.makedirs(target, exist_ok=True)
-        _copy_skill_to(target, force=force)
+        _copy_skill_to(target, keep=keep)
         console.print()
         console.print("[bold]skill-perf skill installed to workspace.[/bold]")
         console.print(

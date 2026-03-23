@@ -42,14 +42,14 @@ def init(
     global_install: bool = typer.Option(
         False, "--global", help="Install globally to ~/.claude/agents/"
     ),
-    force: bool = typer.Option(
-        False, "--force", help="Overwrite existing skill files"
+    keep: bool = typer.Option(
+        False, "--keep", help="Skip if already installed (default: overwrite)"
     ),
 ) -> None:
     """Install the skill-perf skill for AI coding assistants."""
     from skill_perf.commands.init import run_init
 
-    run_init(output_dir=output, global_install=global_install, force=force)
+    run_init(output_dir=output, global_install=global_install, keep=keep)
 
 
 @app.command()

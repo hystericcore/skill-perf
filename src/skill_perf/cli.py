@@ -127,23 +127,46 @@ def diagnose(
 @app.command()
 def suggest(
     paths: list[str] = typer.Argument(..., help="Path(s) to trace session directories"),
+    skill_dir: Optional[str] = typer.Option(
+        None, "--skill", help="Path to skill directory for script detection"
+    ),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    config: Optional[str] = typer.Option(
+        None, "--config", help="Path to .skill-perf.toml config file"
+    ),
 ) -> None:
     """Get actionable fix suggestions for diagnosed issues."""
     from skill_perf.commands.suggest import run_suggest
 
-    run_suggest(paths, json_output=json_output)
+    run_suggest(
+        paths,
+        skill_dir=skill_dir,
+        json_output=json_output,
+        config_path=config,
+    )
 
 
 @app.command()
 def verify(
-    baseline: str = typer.Option(..., "--baseline", "-b", help="Path to baseline trace directory"),
+    baseline: str = typer.Option(
+        ..., "--baseline", "-b", help="Path to baseline trace directory"
+    ),
     current: Optional[str] = typer.Option(
         None, "--current", "-c", help="Path to current trace directory"
     ),
+    skill_dir: Optional[str] = typer.Option(
+        None, "--skill", help="Path to skill directory for script detection"
+    ),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
-    open_browser: bool = typer.Option(False, "--open", help="Open side-by-side HTML report"),
-    report: Optional[str] = typer.Option(None, "--report", help="Output report directory path"),
+    open_browser: bool = typer.Option(
+        False, "--open", help="Open side-by-side HTML report"
+    ),
+    report: Optional[str] = typer.Option(
+        None, "--report", help="Output report directory path"
+    ),
+    config: Optional[str] = typer.Option(
+        None, "--config", help="Path to .skill-perf.toml config file"
+    ),
 ) -> None:
     """Re-run and confirm improvements against a baseline."""
     from skill_perf.commands.verify import run_verify
@@ -151,9 +174,11 @@ def verify(
     run_verify(
         baseline,
         current_path=current,
+        skill_dir=skill_dir,
         json_output=json_output,
         open_browser=open_browser,
         report_path=report,
+        config_path=config,
     )
 
 

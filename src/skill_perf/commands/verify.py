@@ -13,6 +13,7 @@ from uuid import uuid4
 
 from rich.console import Console
 
+from skill_perf.core.config import ThresholdConfig, load_config
 from skill_perf.core.pricing import estimate_cost
 from skill_perf.diagnosis.engine import diagnose
 from skill_perf.models.benchmark import BenchmarkResult
@@ -30,7 +31,12 @@ _SEVERITY_ICONS: dict[str, str] = {
 }
 
 
-def _load_benchmark(trace_dir: str, label: str) -> BenchmarkResult:
+def _load_benchmark(
+    trace_dir: str,
+    label: str,
+    skill_dir: str | None = None,
+    config: ThresholdConfig | None = None,
+) -> BenchmarkResult:
     """Load a trace directory into a BenchmarkResult.
 
     Parse the session, run diagnosis, compute totals.
@@ -39,7 +45,7 @@ def _load_benchmark(trace_dir: str, label: str) -> BenchmarkResult:
         raise FileNotFoundError(f"Trace directory not found: {trace_dir}")
 
     session = parse_session(trace_dir)
-    issues = diagnose(session)
+    issues = diagnose(session, skill_dir=skill_dir, config=config)
     session.issues = issues
 
     model = session.model or "claude-sonnet-4"
@@ -254,13 +260,19 @@ def _print_verification(comp: Comparison) -> None:
 def run_verify(
     baseline_path: str,
     current_path: str | None = None,
+    skill_dir: str | None = None,
     json_output: bool = False,
     open_browser: bool = False,
     report_path: str | None = None,
+    config_path: str | None = None,
 ) -> None:
     """Run verification comparing baseline vs current."""
+    config = load_config(config_path)
+
     # Load baseline
-    baseline = _load_benchmark(baseline_path, "baseline")
+    baseline = _load_benchmark(
+        baseline_path, "baseline", skill_dir=skill_dir, config=config
+    )
 
     # If no current provided, just show baseline stats
     if current_path is None:
@@ -275,7 +287,9 @@ def run_verify(
         return
 
     # Load current
-    current = _load_benchmark(current_path, "current")
+    current = _load_benchmark(
+        current_path, "current", skill_dir=skill_dir, config=config
+    )
 
     # Compare
     comp = _compare(baseline, current)

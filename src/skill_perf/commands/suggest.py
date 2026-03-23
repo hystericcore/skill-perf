@@ -65,13 +65,21 @@ def _print_suggestion(
     )
 
 
-def run_suggest(paths: list[str], json_output: bool = False) -> None:
+def run_suggest(
+    paths: list[str],
+    skill_dir: str | None = None,
+    json_output: bool = False,
+    config_path: str | None = None,
+) -> None:
     """Run suggestion generator on trace directories."""
+    from skill_perf.core.config import load_config
+
+    config = load_config(config_path)
     all_suggestions: list[dict[str, object]] = []
 
     for path in paths:
         session = parse_session(path)
-        issues = diagnose(session)
+        issues = diagnose(session, skill_dir=skill_dir, config=config)
         session.issues = issues
 
         total = len(issues)

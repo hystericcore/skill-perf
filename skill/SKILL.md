@@ -47,4 +47,4 @@ Run `skill-perf verify --baseline <old-traces> --current <new-traces>` to confir
 
 ## CLI reference
 
-See `references/cli-reference.md` for complete command documentation.
+Run `skill-perf --help` or `skill-perf <command> --help` for flags and options.

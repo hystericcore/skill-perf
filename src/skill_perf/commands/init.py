@@ -49,9 +49,6 @@ def _copy_skill_to(target_dir: str, force: bool = False) -> None:
 
     shutil.copytree(src_dir, dst_dir)
     console.print(f"[green]Created[/green] {dst_dir}/SKILL.md")
-    refs = os.path.join(dst_dir, "references")
-    if os.path.isdir(refs):
-        console.print(f"[green]Created[/green] {dst_dir}/references/")
 
 
 def run_init(

@@ -13,6 +13,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
+from skill_perf.core.config import ThresholdConfig
 from skill_perf.diagnosis.engine import diagnose
 from skill_perf.models.diagnosis import Issue
 from skill_perf.models.session import SessionAnalysis
@@ -40,6 +41,7 @@ _BAR_COLORS: dict[str, str] = {
 def _print_session_report(
     session_dir: str,
     skill_dir: str | None,
+    config: ThresholdConfig | None = None,
 ) -> tuple[dict[str, object], SessionAnalysis, list[Issue]] | None:
     """Analyse one session and print Rich output.
 
@@ -53,7 +55,7 @@ def _print_session_report(
         return None
 
     # Run diagnosis
-    issues = diagnose(session, skill_dir=skill_dir)
+    issues = diagnose(session, skill_dir=skill_dir, config=config)
     session.issues = issues
 
     # --- Header ---
@@ -175,13 +177,18 @@ def run_diagnose(
     open_browser: bool = False,
     static: bool = False,
     report: str | None = None,
+    config_path: str | None = None,
 ) -> None:
     """High-level entry point invoked by the Typer diagnose command."""
+    from skill_perf.core.config import load_config
+
+    config = load_config(config_path)
+
     results: list[dict[str, object]] = []
     sessions: list[tuple[SessionAnalysis, list[Issue]]] = []
 
     for path in paths:
-        outcome = _print_session_report(path, skill_dir=skill_dir)
+        outcome = _print_session_report(path, skill_dir=skill_dir, config=config)
         if outcome is not None:
             result_dict, session, issues = outcome
             results.append(result_dict)

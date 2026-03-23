@@ -3,6 +3,8 @@
 Each detector function takes a list of ConversationSteps (and optionally
 session-level or skill-level information) and returns a list of Issue
 objects describing diagnosed problems.
+
+Thresholds are configurable via ThresholdConfig (loaded from .skill-perf.toml).
 """
 
 from __future__ import annotations
@@ -10,9 +12,13 @@ from __future__ import annotations
 import os
 import re
 
+from skill_perf.core.config import ThresholdConfig
 from skill_perf.models.diagnosis import Issue
 from skill_perf.models.session import SessionAnalysis
 from skill_perf.models.step import ConversationStep
+
+_EXPLORATION_TOOLS = {"glob", "grep", "listtool", "search"}
+
 
 # ---------------------------------------------------------------------------
 # Pattern 1 — Script not executed
@@ -25,22 +31,17 @@ def detect_script_not_executed(
     """Skill has ``scripts/`` but the model did work manually.
 
     Only fires when we can confirm the skill actually has a ``scripts/``
-    directory with files in it.  This requires either:
-    - *skill_dir* pointing to a directory containing ``scripts/``
-    - Or a ``skill_load`` step whose file_path parent contains ``scripts/``
+    directory with files in it.
     """
-    # Check if skill_dir has scripts/
     has_scripts_dir = False
     if skill_dir:
         scripts_path = os.path.join(skill_dir, "scripts")
         if os.path.isdir(scripts_path) and os.listdir(scripts_path):
             has_scripts_dir = True
 
-    # If no skill_dir given, try to infer from skill_load steps
     if not has_scripts_dir:
         for step in steps:
             if step.step_type == "skill_load" and step.file_path:
-                # Check if the skill's parent directory has scripts/
                 skill_parent = os.path.dirname(step.file_path)
                 scripts_path = os.path.join(skill_parent, "scripts")
                 if os.path.isdir(scripts_path) and os.listdir(scripts_path):
@@ -50,16 +51,13 @@ def detect_script_not_executed(
     if not has_scripts_dir:
         return []
 
-    script_keywords = (
-        "python ", "node ", "bash ", ".sh", ".py", "scripts/",
-    )
-    for i, step in enumerate(steps):
+    script_keywords = ("python ", "node ", "bash ", ".sh", ".py", "scripts/")
+    for step in steps:
         if step.tool_name and step.tool_name.lower() in ("bash", "bashtool"):
             desc_lower = (step.description + step.raw_content_preview).lower()
             if any(kw in desc_lower for kw in script_keywords):
-                return []  # at least one script was executed
+                return []
 
-    # Find the first skill_load step as the anchor
     anchor = 0
     for i, step in enumerate(steps):
         if step.step_type == "skill_load":
@@ -73,7 +71,8 @@ def detect_script_not_executed(
             step_index=anchor,
             description=(
                 "Skill was loaded but no scripts were executed. "
-                "The model may be doing work that pre-built scripts could handle."
+                "The model may be doing work that pre-built scripts "
+                "could handle."
             ),
             impact_tokens=sum(
                 s.token_count
@@ -92,14 +91,15 @@ def detect_script_not_executed(
 # Pattern 2 — Large file read
 # ---------------------------------------------------------------------------
 
-_LARGE_FILE_THRESHOLD = 2000  # tokens
-
-
-def detect_large_file_read(steps: list[ConversationStep]) -> list[Issue]:
-    """Flag tool results larger than 2 000 tokens."""
+def detect_large_file_read(
+    steps: list[ConversationStep],
+    config: ThresholdConfig | None = None,
+) -> list[Issue]:
+    """Flag tool results larger than the configured threshold."""
+    threshold = (config or ThresholdConfig()).large_file_read_tokens
     issues: list[Issue] = []
     for i, step in enumerate(steps):
-        if step.step_type == "tool_result" and step.token_count > _LARGE_FILE_THRESHOLD:
+        if step.step_type == "tool_result" and step.token_count > threshold:
             issues.append(
                 Issue(
                     severity="warning",
@@ -109,7 +109,7 @@ def detect_large_file_read(steps: list[ConversationStep]) -> list[Issue]:
                         f"Large tool result: {step.token_count:,} tokens. "
                         f"Consider filtering or extracting relevant sections."
                     ),
-                    impact_tokens=step.token_count - _LARGE_FILE_THRESHOLD,
+                    impact_tokens=step.token_count - threshold,
                     suggestion=(
                         "Use grep/head/tail or a script to extract only the "
                         "relevant parts instead of loading the entire file."
@@ -127,13 +127,15 @@ def detect_duplicate_reads(steps: list[ConversationStep]) -> list[Issue]:
     """Same file read more than once across turns."""
     file_reads: dict[str, list[int]] = {}
     for i, step in enumerate(steps):
-        if step.file_path and step.step_type in ("tool_call", "tool_result", "skill_load"):
+        if step.file_path and step.step_type in (
+            "tool_call", "tool_result", "skill_load",
+        ):
             file_reads.setdefault(step.file_path, []).append(i)
 
     issues: list[Issue] = []
     for path, indices in file_reads.items():
         if len(indices) > 1:
-            dup_step = indices[-1]  # flag the later read
+            dup_step = indices[-1]
             step = steps[dup_step]
             issues.append(
                 Issue(
@@ -147,7 +149,8 @@ def detect_duplicate_reads(steps: list[ConversationStep]) -> list[Issue]:
                     impact_tokens=step.token_count,
                     suggestion=(
                         "Avoid re-reading files the model has already seen. "
-                        "Skill instructions can remind the model to cache results."
+                        "Skill instructions can remind the model to cache "
+                        "results."
                     ),
                 )
             )
@@ -158,95 +161,85 @@ def detect_duplicate_reads(steps: list[ConversationStep]) -> list[Issue]:
 # Pattern 4 — Excessive exploration
 # ---------------------------------------------------------------------------
 
-_EXPLORATION_TOOLS = {"glob", "grep", "listtool", "search"}
-_ACTION_TYPES = {"tool_call"}
-_ACTION_TOOLS = {"edit", "write", "create", "str_replace", "bash", "bashtool"}
-_EXPLORATION_THRESHOLD = 5
-_EXPLORATION_MIN_TOKENS = 500  # skip if total tokens below this
+def detect_excessive_exploration(
+    steps: list[ConversationStep],
+    config: ThresholdConfig | None = None,
+) -> list[Issue]:
+    """Consecutive glob/grep tool_call steps before an action."""
+    cfg = config or ThresholdConfig()
+    count_threshold = cfg.excessive_exploration_count
+    min_tokens = cfg.excessive_exploration_min_tokens
 
-
-def detect_excessive_exploration(steps: list[ConversationStep]) -> list[Issue]:
-    """Five or more consecutive glob/grep tool_call steps before an action."""
     issues: list[Issue] = []
     run_start: int | None = None
     run_length = 0
 
     for i, step in enumerate(steps):
         tool = (step.tool_name or "").lower()
-        # Only count tool_call steps, not tool_result
         if tool in _EXPLORATION_TOOLS and step.step_type == "tool_call":
             if run_start is None:
                 run_start = i
             run_length += 1
         else:
-            if run_length >= _EXPLORATION_THRESHOLD and run_start is not None:
+            if run_length >= count_threshold and run_start is not None:
                 total_tokens = sum(
                     steps[j].token_count
                     for j in range(run_start, run_start + run_length)
                 )
-                if total_tokens >= _EXPLORATION_MIN_TOKENS:
-                    issues.append(
-                        Issue(
-                            severity="warning",
-                            pattern="excessive_exploration",
-                            step_index=run_start,
-                            description=(
-                                f"{run_length} consecutive exploration calls "
-                                f"(glob/grep) before acting. "
-                                f"Total: {total_tokens:,} tokens."
-                            ),
-                            impact_tokens=total_tokens,
-                            suggestion=(
-                                "Skill instructions should tell the model "
-                                "exactly where to look, reducing exploratory "
-                                "searching."
-                            ),
-                        )
-                    )
+                if total_tokens >= min_tokens:
+                    issues.append(_exploration_issue(
+                        run_start, run_length, total_tokens
+                    ))
             run_start = None
             run_length = 0
 
     # Handle trailing run
-    if run_length >= _EXPLORATION_THRESHOLD and run_start is not None:
+    if run_length >= count_threshold and run_start is not None:
         total_tokens = sum(
             steps[j].token_count
             for j in range(run_start, run_start + run_length)
         )
-        if total_tokens >= _EXPLORATION_MIN_TOKENS:
-            issues.append(
-                Issue(
-                    severity="warning",
-                    pattern="excessive_exploration",
-                    step_index=run_start,
-                    description=(
-                        f"{run_length} consecutive exploration calls "
-                        f"(glob/grep) before acting. "
-                        f"Total: {total_tokens:,} tokens."
-                    ),
-                    impact_tokens=total_tokens,
-                    suggestion=(
-                        "Skill instructions should tell the model "
-                        "exactly where to look, reducing exploratory "
-                        "searching."
-                    ),
-                )
-            )
+        if total_tokens >= min_tokens:
+            issues.append(_exploration_issue(
+                run_start, run_length, total_tokens
+            ))
 
     return issues
+
+
+def _exploration_issue(
+    step_index: int, run_length: int, total_tokens: int,
+) -> Issue:
+    return Issue(
+        severity="warning",
+        pattern="excessive_exploration",
+        step_index=step_index,
+        description=(
+            f"{run_length} consecutive exploration calls "
+            f"(glob/grep) before acting. "
+            f"Total: {total_tokens:,} tokens."
+        ),
+        impact_tokens=total_tokens,
+        suggestion=(
+            "Skill instructions should tell the model "
+            "exactly where to look, reducing exploratory searching."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
 # Pattern 5 — Oversized skill
 # ---------------------------------------------------------------------------
 
-_OVERSIZED_SKILL_THRESHOLD = 3000  # tokens
-
-
-def detect_oversized_skill(steps: list[ConversationStep]) -> list[Issue]:
-    """Skill files loaded with more than 3 000 tokens at once."""
+def detect_oversized_skill(
+    steps: list[ConversationStep],
+    config: ThresholdConfig | None = None,
+) -> list[Issue]:
+    """Skill files loaded above the configured token threshold."""
+    threshold = (config or ThresholdConfig()).oversized_skill_tokens
     issues: list[Issue] = []
     for i, step in enumerate(steps):
-        if step.step_type == "skill_load" and step.token_count > _OVERSIZED_SKILL_THRESHOLD:
+        if step.step_type == "skill_load" and step.token_count > threshold:
             issues.append(
                 Issue(
                     severity="warning",
@@ -257,10 +250,11 @@ def detect_oversized_skill(steps: list[ConversationStep]) -> list[Issue]:
                         f"Consider splitting into SKILL.md + references/ "
                         f"with selective loading."
                     ),
-                    impact_tokens=step.token_count - _OVERSIZED_SKILL_THRESHOLD,
+                    impact_tokens=step.token_count - threshold,
                     suggestion=(
-                        "Break the skill into a concise SKILL.md (< 2 000 tokens) "
-                        "and put detailed references in references/."
+                        "Break the skill into a concise SKILL.md "
+                        "(< 2 000 tokens) and put detailed references "
+                        "in references/."
                     ),
                 )
             )
@@ -271,29 +265,33 @@ def detect_oversized_skill(steps: list[ConversationStep]) -> list[Issue]:
 # Pattern 6 — cat on large file
 # ---------------------------------------------------------------------------
 
-_CAT_TOKEN_THRESHOLD = 500
-
-
-def detect_cat_on_large_file(steps: list[ConversationStep]) -> list[Issue]:
-    """Bash ``cat`` on files that could use grep/head."""
+def detect_cat_on_large_file(
+    steps: list[ConversationStep],
+    config: ThresholdConfig | None = None,
+) -> list[Issue]:
+    """Bash ``cat`` on files above the configured token threshold."""
+    threshold = (config or ThresholdConfig()).cat_on_large_file_tokens
     issues: list[Issue] = []
     for i, step in enumerate(steps):
         if step.tool_name and step.tool_name.lower() in ("bash", "bashtool"):
             desc_lower = step.description.lower()
-            if "cat " in desc_lower and step.token_count > _CAT_TOKEN_THRESHOLD:
+            if "cat " in desc_lower and step.token_count > threshold:
                 issues.append(
                     Issue(
                         severity="warning",
                         pattern="cat_on_large_file",
                         step_index=i,
                         description=(
-                            f"Using 'cat' on a large file ({step.token_count:,} tokens). "
-                            f"Consider grep/head/tail to extract relevant sections."
+                            f"Using 'cat' on a large file "
+                            f"({step.token_count:,} tokens). "
+                            f"Consider grep/head/tail to extract "
+                            f"relevant sections."
                         ),
                         impact_tokens=step.token_count,
                         suggestion=(
-                            "Replace 'cat' with targeted commands (grep, head, tail) "
-                            "or use a script to extract only what is needed."
+                            "Replace 'cat' with targeted commands "
+                            "(grep, head, tail) or use a script to "
+                            "extract only what is needed."
                         ),
                     )
                 )
@@ -304,20 +302,18 @@ def detect_cat_on_large_file(steps: list[ConversationStep]) -> list[Issue]:
 # Pattern 7 — Low cache rate
 # ---------------------------------------------------------------------------
 
-def detect_low_cache_rate(session: SessionAnalysis) -> list[Issue]:
-    """Cache hit rate appears low (api_input >> estimated tokens).
-
-    We can only approximate: if the API-reported input tokens are
-    significantly more than our step-level estimate, caching may be
-    underutilised.  This is inherently imprecise.
-    """
+def detect_low_cache_rate(
+    session: SessionAnalysis,
+    config: ThresholdConfig | None = None,
+) -> list[Issue]:
+    """Cache hit rate appears low (api_input >> estimated tokens)."""
+    threshold = (config or ThresholdConfig()).low_cache_rate_ratio
     estimated = session.total_estimated_tokens
     if estimated == 0 or session.api_input_tokens == 0:
         return []
 
-    # If API input is more than 2x estimated, caching is likely poor
     ratio = session.api_input_tokens / estimated
-    if ratio <= 2.0:
+    if ratio <= threshold:
         return []
 
     return [
@@ -343,17 +339,19 @@ def detect_low_cache_rate(session: SessionAnalysis) -> list[Issue]:
 # Pattern 8 — High think/act ratio
 # ---------------------------------------------------------------------------
 
-_THINK_ACT_THRESHOLD = 3.0
-
-
-def detect_high_think_ratio(session: SessionAnalysis) -> list[Issue]:
+def detect_high_think_ratio(
+    session: SessionAnalysis,
+    config: ThresholdConfig | None = None,
+) -> list[Issue]:
     """Model generating disproportionately more text than tool usage."""
+    threshold = (config or ThresholdConfig()).high_think_ratio
     ratio = session.think_act_ratio
-    if ratio <= _THINK_ACT_THRESHOLD:
+    if ratio <= threshold:
         return []
 
     assistant_tokens = sum(
-        s.token_count for s in session.steps if s.step_type == "assistant_response"
+        s.token_count for s in session.steps
+        if s.step_type == "assistant_response"
     )
 
     return [
@@ -381,16 +379,11 @@ def detect_high_think_ratio(session: SessionAnalysis) -> list[Issue]:
 # ---------------------------------------------------------------------------
 
 def _extract_user_prompt(steps: list[ConversationStep]) -> str:
-    """Extract the first real user prompt from the steps.
-
-    Skips system-injected content (tool definitions, deferred-tools blocks)
-    and returns the actual user-authored message.
-    """
+    """Extract the first real user prompt from the steps."""
     for step in steps:
         if step.step_type != "user_message":
             continue
         preview = step.raw_content_preview
-        # Skip system-injected content
         if preview.startswith("<available-deferred-tools>"):
             continue
         if preview.startswith("<system-reminder>"):
@@ -402,13 +395,9 @@ def _extract_user_prompt(steps: list[ConversationStep]) -> str:
 
 
 def _load_skill_description(skill_dir: str) -> tuple[str, str]:
-    """Load skill name and description from SKILL.md frontmatter.
-
-    Returns (name, description).
-    """
+    """Load skill name and description from SKILL.md frontmatter."""
     skill_md = os.path.join(skill_dir, "SKILL.md")
     if not os.path.isfile(skill_md):
-        # Try common variants
         for name in ("skill.md", "SKILL.MD"):
             candidate = os.path.join(skill_dir, name)
             if os.path.isfile(candidate):
@@ -423,7 +412,6 @@ def _load_skill_description(skill_dir: str) -> tuple[str, str]:
     except OSError:
         return "", ""
 
-    # Parse YAML frontmatter
     match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
     if not match:
         return "", ""
@@ -440,12 +428,13 @@ def _load_skill_description(skill_dir: str) -> tuple[str, str]:
     return name, description
 
 
-def _keywords_match(prompt: str, description: str, threshold: int = 2) -> bool:
+def _keywords_match(
+    prompt: str, description: str, threshold: int = 2,
+) -> bool:
     """Check if enough keywords from the description appear in the prompt."""
     if not prompt or not description:
         return False
 
-    # Extract meaningful words (skip common words)
     stop_words = {
         "a", "an", "the", "and", "or", "to", "in", "on", "for", "of",
         "is", "are", "was", "were", "be", "been", "with", "that", "this",
@@ -467,34 +456,25 @@ def detect_skill_not_triggered(
     steps: list[ConversationStep],
     skill_dir: str | None = None,
 ) -> list[Issue]:
-    """Skill exists and prompt matches its description, but it was never loaded.
-
-    Only fires when *skill_dir* is provided and the skill's description
-    keywords match the user prompt, but no ``skill_load`` step appears.
-    """
+    """Skill exists and prompt matches but was never loaded."""
     if not skill_dir:
         return []
 
-    # Check if skill was loaded
     has_skill_load = any(s.step_type == "skill_load" for s in steps)
     if has_skill_load:
         return []
 
-    # Load skill description
     name, description = _load_skill_description(skill_dir)
     if not description:
         return []
 
-    # Extract user prompt
     prompt = _extract_user_prompt(steps)
     if not prompt:
         return []
 
-    # Check if prompt matches skill description
     if not _keywords_match(prompt, description):
         return []
 
-    # Find the first user_message step as anchor
     anchor = 0
     for i, step in enumerate(steps):
         if step.step_type == "user_message":

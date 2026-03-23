@@ -14,6 +14,27 @@ app = typer.Typer(
 
 
 @app.command()
+def config(
+    generate: bool = typer.Option(
+        False, "--generate", help="Generate default .skill-perf.toml"
+    ),
+) -> None:
+    """Show or generate threshold configuration."""
+    from skill_perf.core.config import CONFIG_FILENAME, generate_default_config, load_config
+
+    if generate:
+        content = generate_default_config()
+        with open(CONFIG_FILENAME, "w") as f:
+            f.write(content)
+        typer.echo(f"Generated {CONFIG_FILENAME}")
+    else:
+        cfg = load_config()
+        typer.echo("Current thresholds:")
+        for field, value in cfg.model_dump().items():
+            typer.echo(f"  {field}: {value}")
+
+
+@app.command()
 def init(
     output: str = typer.Argument(
         ".", help="Target project directory (default: current directory)"
@@ -85,6 +106,9 @@ def diagnose(
         False, "--static", help="Generate static HTML report"
     ),
     report: Optional[str] = typer.Option(None, "--report", help="Output HTML report path"),
+    config: Optional[str] = typer.Option(
+        None, "--config", help="Path to .skill-perf.toml config file"
+    ),
 ) -> None:
     """Find underperforming steps and waste patterns."""
     from skill_perf.commands.diagnose import run_diagnose
@@ -96,6 +120,7 @@ def diagnose(
         open_browser=open_browser,
         static=static,
         report=report,
+        config_path=config,
     )
 
 

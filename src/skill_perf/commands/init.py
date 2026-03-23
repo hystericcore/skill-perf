@@ -18,7 +18,7 @@ def _get_skill_source_dir() -> str:
     """Get the path to the bundled skill/ directory in the package."""
     ref = importlib.resources.files("skill_perf")
     # Go up from src/skill_perf/ to project root, then into skill/
-    pkg_path = str(ref.joinpath("..", ".."))  # type: ignore[call-arg]
+    pkg_path = str(ref.joinpath("..", ".."))
     skill_dir = os.path.realpath(os.path.join(pkg_path, "skill"))
     if not os.path.isdir(skill_dir):
         console.print(

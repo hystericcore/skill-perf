@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "skill-perf"
 version = "0.1.0"
 description = "webpack-bundle-analyzer for LLM context. Measure, diagnose, and improve skill performance."
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 readme = "README.md"
 authors = [
@@ -19,7 +19,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Quality Assurance",
@@ -42,14 +41,14 @@ skill-perf = "skill_perf.cli:app"
 "skill" = "skill_perf/skill"
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 strict = true
 
 [tool.pytest.ini_options]

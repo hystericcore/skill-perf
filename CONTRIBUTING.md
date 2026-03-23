@@ -24,6 +24,6 @@ ruff check src/
 
 ## Code Style
 
-- Python 3.10+
+- Python 3.11+
 - Type hints required
 - Follow existing patterns in the codebase

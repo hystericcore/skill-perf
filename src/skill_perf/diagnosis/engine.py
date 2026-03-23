@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
+from skill_perf.core.config import ThresholdConfig
 from skill_perf.diagnosis.patterns import (
     detect_cat_on_large_file,
     detect_duplicate_reads,
@@ -17,49 +16,37 @@ from skill_perf.diagnosis.patterns import (
 )
 from skill_perf.models.diagnosis import Issue
 from skill_perf.models.session import SessionAnalysis
-from skill_perf.models.step import ConversationStep
 
 SEVERITY_ORDER: dict[str, int] = {"critical": 0, "warning": 1, "info": 2}
-
-StepDetector = Callable[[list[ConversationStep]], list[Issue]]
-SessionDetector = Callable[[SessionAnalysis], list[Issue]]
-
-# Detectors that operate on steps only
-_STEP_DETECTORS: list[StepDetector] = [
-    detect_large_file_read,
-    detect_duplicate_reads,
-    detect_excessive_exploration,
-    detect_oversized_skill,
-    detect_cat_on_large_file,
-]
-
-# Detectors that require the full session object
-_SESSION_DETECTORS: list[SessionDetector] = [
-    detect_low_cache_rate,
-    detect_high_think_ratio,
-]
 
 
 def diagnose(
     session: SessionAnalysis,
     skill_dir: str | None = None,
+    config: ThresholdConfig | None = None,
 ) -> list[Issue]:
-    """Run all pattern detectors and return issues sorted by severity then impact_tokens."""
+    """Run all pattern detectors and return issues sorted by severity."""
+    cfg = config or ThresholdConfig()
     issues: list[Issue] = []
 
-    # Detectors that need both steps and skill_dir
+    # Detectors that need skill_dir
     issues.extend(detect_script_not_executed(session.steps, skill_dir=skill_dir))
     issues.extend(detect_skill_not_triggered(session.steps, skill_dir=skill_dir))
 
-    # Step-level detectors
-    for detector in _STEP_DETECTORS:
-        issues.extend(detector(session.steps))
+    # Step-level detectors (configurable thresholds)
+    issues.extend(detect_large_file_read(session.steps, config=cfg))
+    issues.extend(detect_duplicate_reads(session.steps))
+    issues.extend(detect_excessive_exploration(session.steps, config=cfg))
+    issues.extend(detect_oversized_skill(session.steps, config=cfg))
+    issues.extend(detect_cat_on_large_file(session.steps, config=cfg))
 
-    # Session-level detectors
-    for session_detector in _SESSION_DETECTORS:
-        issues.extend(session_detector(session))
+    # Session-level detectors (configurable thresholds)
+    issues.extend(detect_low_cache_rate(session, config=cfg))
+    issues.extend(detect_high_think_ratio(session, config=cfg))
 
-    # Sort: severity first (critical < warning < info), then by impact_tokens descending
-    issues.sort(key=lambda i: (SEVERITY_ORDER.get(i.severity, 9), -i.impact_tokens))
+    # Sort: severity first, then by impact_tokens descending
+    issues.sort(
+        key=lambda i: (SEVERITY_ORDER.get(i.severity, 9), -i.impact_tokens)
+    )
 
     return issues

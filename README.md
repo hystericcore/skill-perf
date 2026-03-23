@@ -13,12 +13,6 @@ and verifies improvements -- a continuous optimization cycle for LLM skills.
 pip install skill-perf
 ```
 
-To capture live traffic through a local proxy (optional):
-
-```bash
-pip install "skill-perf[capture]"
-```
-
 ## Quick Start
 
 ```bash

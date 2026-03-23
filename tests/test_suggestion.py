@@ -28,13 +28,40 @@ ALL_PATTERNS = [
 runner = CliRunner()
 
 
-def _make_session(model: str = "claude-sonnet-4") -> SessionAnalysis:
+def _make_session(
+    model: str = "claude-sonnet-4",
+    steps: list[ConversationStep] | None = None,
+) -> SessionAnalysis:
     """Create a minimal session for testing."""
+    if steps is None:
+        steps = [
+            ConversationStep(
+                turn=1,
+                role="user",
+                step_type="user_message",
+                description="User asked a question",
+                token_count=100,
+            ),
+            ConversationStep(
+                turn=2,
+                role="assistant",
+                step_type="assistant_response",
+                description="Model response",
+                token_count=500,
+            ),
+        ]
     return SessionAnalysis(
         session_id="test-session-001",
         model=model,
         api_input_tokens=5000,
         api_output_tokens=1000,
+        steps=steps,
+    )
+
+
+def _make_session_with_tool_step() -> SessionAnalysis:
+    """Create a session with a tool step that has file_path and tool_name."""
+    return _make_session(
         steps=[
             ConversationStep(
                 turn=1,
@@ -45,6 +72,16 @@ def _make_session(model: str = "claude-sonnet-4") -> SessionAnalysis:
             ),
             ConversationStep(
                 turn=2,
+                role="tool",
+                step_type="tool_result",
+                description="Read entire file",
+                token_count=3500,
+                tool_name="Read",
+                file_path="src/main.py",
+                raw_content_preview="import os\nimport sys\n",
+            ),
+            ConversationStep(
+                turn=3,
                 role="assistant",
                 step_type="assistant_response",
                 description="Model response",
@@ -104,38 +141,106 @@ class TestGenerateSuggestionScriptNotExecuted:
 
 class TestGenerateSuggestionLargeFileRead:
     def test_template_content(self) -> None:
+        session = _make_session_with_tool_step()
         issue = _make_issue(
             pattern="large_file_read",
+            step_index=1,
             description="Read entire 500-line file",
             impact_tokens=1500,
         )
-        session = _make_session()
         result = generate_suggestion(issue, session)
 
+        assert "src/main.py" in result
+        assert "3,500" in result
         assert "grep" in result.lower()
         assert "relevant section" in result
-        assert "larger than 50 lines" in result
+
+    def test_template_fallback_without_step(self) -> None:
+        """Template returns as-is when step index is out of range."""
+        session = _make_session()
+        issue = _make_issue(
+            pattern="large_file_read",
+            step_index=99,
+            description="Read entire file",
+            impact_tokens=1500,
+        )
+        result = generate_suggestion(issue, session)
+        # Should return the raw template (format fails, falls back)
+        assert "{file_path}" in result or "grep" in result.lower()
 
 
 class TestGenerateSuggestionDuplicateReads:
     def test_template_content(self) -> None:
+        # Create session with duplicate file reads
+        session = _make_session(
+            steps=[
+                ConversationStep(
+                    turn=1,
+                    role="tool",
+                    step_type="tool_result",
+                    description="Read file",
+                    token_count=1000,
+                    tool_name="Read",
+                    file_path="src/utils.py",
+                ),
+                ConversationStep(
+                    turn=2,
+                    role="tool",
+                    step_type="tool_result",
+                    description="Read file again",
+                    token_count=1000,
+                    tool_name="Read",
+                    file_path="src/utils.py",
+                ),
+                ConversationStep(
+                    turn=3,
+                    role="tool",
+                    step_type="tool_result",
+                    description="Read file third time",
+                    token_count=1000,
+                    tool_name="Read",
+                    file_path="src/utils.py",
+                ),
+            ],
+        )
         issue = _make_issue(
             pattern="duplicate_reads",
+            step_index=0,
             description="File read 3 times",
             impact_tokens=800,
         )
-        session = _make_session()
         result = generate_suggestion(issue, session)
 
+        assert "src/utils.py" in result
+        assert "3" in result  # read_count
         assert "retain" in result.lower() or "memory" in result.lower()
         assert "re-read" in result.lower() or "Do NOT" in result
 
 
+class TestGenerateSuggestionExcessiveExploration:
+    def test_template_content(self) -> None:
+        session = _make_session_with_tool_step()
+        issue = _make_issue(
+            pattern="excessive_exploration",
+            step_index=1,
+            description="6 consecutive exploration calls before action",
+            impact_tokens=600,
+        )
+        result = generate_suggestion(issue, session)
+
+        assert "6" in result
+        assert "search" in result.lower() or "exploration" in result.lower()
+
+
 class TestGenerateSuggestionAllPatterns:
     def test_every_pattern_returns_nonempty(self) -> None:
-        session = _make_session()
+        session = _make_session_with_tool_step()
         for pattern in ALL_PATTERNS:
-            issue = _make_issue(pattern=pattern, description="Test issue")
+            issue = _make_issue(
+                pattern=pattern,
+                step_index=1,
+                description="Test issue",
+            )
             result = generate_suggestion(issue, session)
             assert result.strip(), f"Empty suggestion for pattern: {pattern}"
 
@@ -147,6 +252,49 @@ class TestGenerateSuggestionAllPatterns:
         session = _make_session()
         result = generate_suggestion(issue, session)
         assert result == "Fallback suggestion text"
+
+
+class TestSuggestionIncludesStepContext:
+    def test_suggestion_includes_step_context(self) -> None:
+        """Step data (file_path, tool_name) appears in the generated suggestion."""
+        session = _make_session_with_tool_step()
+        issue = _make_issue(
+            pattern="large_file_read",
+            step_index=1,
+            description="Read entire file src/main.py",
+            impact_tokens=3500,
+        )
+        result = generate_suggestion(issue, session)
+
+        assert "src/main.py" in result
+        assert "3,500" in result
+
+    def test_cat_on_large_file_includes_step_context(self) -> None:
+        session = _make_session_with_tool_step()
+        issue = _make_issue(
+            pattern="cat_on_large_file",
+            step_index=1,
+            description="cat on large file",
+            impact_tokens=3500,
+        )
+        result = generate_suggestion(issue, session)
+
+        assert "src/main.py" in result
+        assert "3,500" in result
+        assert "Step [1]" in result
+
+    def test_oversized_skill_includes_step_context(self) -> None:
+        session = _make_session_with_tool_step()
+        issue = _make_issue(
+            pattern="oversized_skill",
+            step_index=1,
+            description="Skill file too large",
+            impact_tokens=5000,
+        )
+        result = generate_suggestion(issue, session)
+
+        assert "src/main.py" in result
+        assert "3,500" in result
 
 
 class TestEstimateSavings:

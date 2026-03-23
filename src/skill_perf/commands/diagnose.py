@@ -7,13 +7,17 @@ and prints a Rich terminal report (or JSON).
 from __future__ import annotations
 
 import json
+import tempfile
 
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
 from skill_perf.diagnosis.engine import diagnose
+from skill_perf.models.diagnosis import Issue
+from skill_perf.models.session import SessionAnalysis
 from skill_perf.parser.trace_reader import parse_session
+from skill_perf.report import generate_html_report, serve_report
 
 console = Console()
 
@@ -36,8 +40,12 @@ _BAR_COLORS: dict[str, str] = {
 def _print_session_report(
     session_dir: str,
     skill_dir: str | None,
-) -> dict[str, object] | None:
-    """Analyse one session and print Rich output. Returns dict for JSON mode."""
+) -> tuple[dict[str, object], SessionAnalysis, list[Issue]] | None:
+    """Analyse one session and print Rich output.
+
+    Returns a tuple of (serialisable dict, session, issues) or ``None``
+    if the session directory contains no steps.
+    """
     session = parse_session(session_dir)
 
     if not session.steps:
@@ -132,8 +140,8 @@ def _print_session_report(
     console.print(f"\n  Estimated total: {session.total_estimated_tokens:,} tokens")
     console.print()
 
-    # Return serialisable dict
-    return {
+    # Return serialisable dict alongside the parsed objects
+    result_dict: dict[str, object] = {
         "session_id": session.session_id,
         "model": session.model,
         "api_input_tokens": session.api_input_tokens,
@@ -157,6 +165,7 @@ def _print_session_report(
             for s in session.steps
         ],
     }
+    return (result_dict, session, issues)
 
 
 def run_diagnose(
@@ -168,14 +177,15 @@ def run_diagnose(
     report: str | None = None,
 ) -> None:
     """High-level entry point invoked by the Typer diagnose command."""
-    if open_browser or static:
-        console.print("[yellow]HTML report not implemented yet[/yellow]")
-
     results: list[dict[str, object]] = []
+    sessions: list[tuple[SessionAnalysis, list[Issue]]] = []
+
     for path in paths:
-        result = _print_session_report(path, skill_dir=skill_dir)
-        if result is not None:
-            results.append(result)
+        outcome = _print_session_report(path, skill_dir=skill_dir)
+        if outcome is not None:
+            result_dict, session, issues = outcome
+            results.append(result_dict)
+            sessions.append((session, issues))
 
     if not results:
         console.print("[bold red]No sessions found or parsed.[/bold red]")
@@ -184,5 +194,33 @@ def run_diagnose(
     if json_output:
         console.print_json(json.dumps(results, indent=2))
 
-    if report:
-        console.print(f"[yellow]HTML report output to '{report}' not implemented yet[/yellow]")
+    # --- HTML report generation ---
+    # Use the last parsed session for the report (multi-session reports
+    # could be extended later; for now one treemap per invocation).
+    if report or static or open_browser:
+        last_session, last_issues = sessions[-1]
+        model = last_session.model or "claude-sonnet-4"
+
+        if report:
+            generate_html_report(
+                last_session, last_issues, output_path=report, model=model,
+            )
+            console.print(f"[green]HTML report saved to {report}[/green]")
+
+        if static:
+            static_path = "./skill-perf-report.html"
+            generate_html_report(
+                last_session, last_issues, output_path=static_path, model=model,
+            )
+            console.print(f"[green]Static HTML report saved to {static_path}[/green]")
+
+        if open_browser:
+            tmp = tempfile.NamedTemporaryFile(
+                suffix=".html", prefix="skill-perf-", delete=False,
+            )
+            tmp.close()
+            generate_html_report(
+                last_session, last_issues, output_path=tmp.name, model=model,
+            )
+            console.print(f"[green]HTML report generated at {tmp.name}[/green]")
+            serve_report(tmp.name)

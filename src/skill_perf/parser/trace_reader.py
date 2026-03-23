@@ -56,14 +56,14 @@ def _parse_split_output(split_dir: str) -> tuple[list[ConversationStep], int, in
             content = data.get("content", "")
             if isinstance(content, str) and "data: " in content:
                 sse = parse_sse_response(content, provider)
-                api_input = sse.get("input_tokens", 0)
-                api_output = sse.get("output_tokens", 0)
+                api_input += sse.get("input_tokens", 0)
+                api_output += sse.get("output_tokens", 0)
                 model = sse.get("model", "")
             elif body:
                 inp, out, m = parse_response_usage(body, provider)
                 if inp > 0:
-                    api_input = inp
-                    api_output = out
+                    api_input += inp
+                    api_output += out
                     model = m
 
     return steps, api_input, api_output, model
@@ -112,14 +112,14 @@ def _parse_jsonl(jsonl_path: str) -> tuple[list[ConversationStep], int, int, str
             if isinstance(content, str) and "data: " in content:
                 sse = parse_sse_response(content, provider)
                 if sse.get("input_tokens", 0) > 0:
-                    api_input = sse["input_tokens"]
-                    api_output = sse.get("output_tokens", 0)
+                    api_input += sse["input_tokens"]
+                    api_output += sse.get("output_tokens", 0)
                     model = sse.get("model", "")
             elif isinstance(body, dict) and body:
                 inp, out, m = parse_response_usage(body, provider)
                 if inp > 0:
-                    api_input = inp
-                    api_output = out
+                    api_input += inp
+                    api_output += out
                     model = m
 
     return steps, api_input, api_output, model
@@ -170,6 +170,7 @@ def _parse_lli_jsonl(jsonl_path: str) -> tuple[list[ConversationStep], int, int,
             chunk_type = content.get("type", "")
 
             if chunk_type == "message_start":
+                # message_start carries input token counts
                 msg = content.get("message", {})
                 usage = msg.get("usage", {})
                 model = msg.get("model", model)
@@ -177,21 +178,15 @@ def _parse_lli_jsonl(jsonl_path: str) -> tuple[list[ConversationStep], int, int,
                 cache_read = usage.get("cache_read_input_tokens", 0)
                 cache_create = usage.get("cache_creation_input_tokens", 0)
                 if inp > 0 or cache_read > 0 or cache_create > 0:
-                    api_input = inp + cache_read + cache_create
+                    api_input += inp + cache_read + cache_create
 
             elif chunk_type == "message_delta":
+                # message_delta carries output token counts only;
+                # input tokens here duplicate message_start, so skip them
                 usage = content.get("usage", {})
                 out = usage.get("output_tokens", 0)
                 if out > 0:
-                    api_output = out
-                # message_delta may also have final input token counts
-                inp = usage.get("input_tokens", 0)
-                cache_read = usage.get("cache_read_input_tokens", 0)
-                cache_create = usage.get(
-                    "cache_creation_input_tokens", 0
-                )
-                if inp > 0:
-                    api_input = inp + cache_read + cache_create
+                    api_output += out
 
     return steps, api_input, api_output, model
 

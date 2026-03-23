@@ -129,6 +129,17 @@ def run_measure(
         proxy.stop()
         console.print("[green]Proxy stopped[/green]")
 
+    # --- Check if any traces were captured ---
+    trace_files = [
+        f for f in os.listdir(trace_dir)
+        if f.endswith(".jsonl") and os.path.getsize(os.path.join(trace_dir, f)) > 0
+    ] if os.path.isdir(trace_dir) else []
+    if not trace_files:
+        console.print(
+            "[yellow]Warning:[/yellow] No trace files captured. "
+            "Check that the proxy was running and the CLI sent requests through it."
+        )
+
     # --- Optional diagnosis ---
     if do_diagnose:
         console.print("[cyan]Running diagnosis on captured traces...[/cyan]")

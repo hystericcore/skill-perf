@@ -80,9 +80,9 @@ def diagnose(
         None, "--skill", help="Path to skill directory for script detection"
     ),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
-    open_browser: bool = typer.Option(False, "--open", help="Open HTML treemap (placeholder)"),
+    open_browser: bool = typer.Option(False, "--open", help="Open HTML treemap in browser"),
     static: bool = typer.Option(
-        False, "--static", help="Generate static HTML report (placeholder)"
+        False, "--static", help="Generate static HTML report"
     ),
     report: Optional[str] = typer.Option(None, "--report", help="Output HTML report path"),
 ) -> None:

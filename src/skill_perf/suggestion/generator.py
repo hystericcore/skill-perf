@@ -14,19 +14,52 @@ def generate_suggestion(issue: Issue, session: SessionAnalysis) -> str:
     """Generate actionable fix text for a diagnosed issue.
 
     Returns formatted suggestion text with the template filled in using
-    context from the issue description.
+    context from the issue description and the actual step data.
     """
     template = TEMPLATES.get(issue.pattern, "")
     if not template:
         return issue.suggestion
 
-    # Extract contextual values from the issue description for template filling
+    # Build context from step data
     context: dict[str, str] = {}
 
-    if issue.pattern == "script_not_executed":
+    # Safe access to the step
+    if 0 <= issue.step_index < len(session.steps):
+        step = session.steps[issue.step_index]
+        context["file_path"] = step.file_path or "unknown file"
+        context["tool_name"] = step.tool_name or "unknown tool"
+        context["token_count"] = f"{step.token_count:,}"
+        context["step_index"] = str(issue.step_index)
+        context["raw_preview"] = (
+            step.raw_content_preview[:100] if step.raw_content_preview else ""
+        )
+
+    # Pattern-specific context
+    if issue.pattern == "duplicate_reads":
+        # Count how many times this file appears
+        file_path = context.get("file_path", "")
+        if file_path and file_path != "unknown file":
+            read_count = sum(
+                1
+                for s in session.steps
+                if s.file_path == file_path
+                and s.step_type in ("tool_call", "tool_result", "skill_load")
+            )
+            context["read_count"] = str(read_count)
+        else:
+            context["read_count"] = "multiple"
+
+    elif issue.pattern == "excessive_exploration":
+        # Extract count from description (e.g., "6 consecutive exploration calls")
+        m = re.search(r"(\d+)\s+consecutive", issue.description)
+        context["exploration_count"] = m.group(1) if m else "5+"
+
+    elif issue.pattern == "script_not_executed":
         # Try to extract script name from the issue description
         script_match = re.search(r"scripts?/(\S+\.py)", issue.description)
-        context["script_name"] = script_match.group(1) if script_match else "run.py"
+        context["script_name"] = (
+            script_match.group(1) if script_match else "run.py"
+        )
         # Try to extract task description
         context["task_description"] = _extract_task_description(issue.description)
 

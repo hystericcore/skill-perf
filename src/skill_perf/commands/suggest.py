@@ -28,6 +28,9 @@ def _print_suggestion(
     suggestion_text: str,
     tokens_saved: int,
     cost_saved: float,
+    step_tool_name: str | None = None,
+    step_file_path: str | None = None,
+    step_token_count: int | None = None,
 ) -> None:
     """Print a single suggestion with Rich formatting."""
     icon = SEVERITY_ICON.get(issue.severity, "")
@@ -39,6 +42,17 @@ def _print_suggestion(
         f"  Step [{issue.step_index}]: {issue.description} "
         f"({issue.impact_tokens:,} tokens)"
     )
+
+    # Show step-specific context if available
+    if step_tool_name or step_file_path:
+        parts = [f"  Step [{issue.step_index}]:"]
+        if step_tool_name:
+            parts.append(step_tool_name)
+        if step_file_path:
+            parts.append(f"on {step_file_path}")
+        if step_token_count is not None:
+            parts.append(f"({step_token_count:,} tokens)")
+        console.print(" ".join(parts), style="dim")
 
     panel = Panel(
         suggestion_text.strip(),
@@ -96,8 +110,26 @@ def run_suggest(paths: list[str], json_output: bool = False) -> None:
                     }
                 )
             else:
+                # Extract step context for display
+                step_tool_name = None
+                step_file_path = None
+                step_token_count = None
+                if 0 <= issue.step_index < len(session.steps):
+                    step = session.steps[issue.step_index]
+                    step_tool_name = step.tool_name
+                    step_file_path = step.file_path
+                    step_token_count = step.token_count
+
                 _print_suggestion(
-                    idx, total, issue, suggestion_text, tokens_saved, cost_saved
+                    idx,
+                    total,
+                    issue,
+                    suggestion_text,
+                    tokens_saved,
+                    cost_saved,
+                    step_tool_name=step_tool_name,
+                    step_file_path=step_file_path,
+                    step_token_count=step_token_count,
                 )
 
     if json_output:

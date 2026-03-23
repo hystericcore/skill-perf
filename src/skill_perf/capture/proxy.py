@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 import os
+import socket
 import subprocess
 import time
+
+from rich.console import Console
+
+_console = Console()
 
 
 class ProxyManager:
@@ -19,6 +24,18 @@ class ProxyManager:
         self.port = port
         self.trace_dir = trace_dir
         self._process: subprocess.Popen | None = None  # type: ignore[type-arg]
+
+    def _wait_for_proxy(self, timeout: int = 10) -> bool:
+        """Poll proxy port until it responds or timeout."""
+        start = time.time()
+        while time.time() - start < timeout:
+            try:
+                sock = socket.create_connection(("localhost", self.port), timeout=1)
+                sock.close()
+                return True
+            except OSError:
+                time.sleep(0.3)
+        return False
 
     def start(self) -> None:
         """Start the lli proxy. Raises RuntimeError if lli not found or fails to start."""
@@ -37,15 +54,18 @@ class ProxyManager:
                 stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE,
             )
-            time.sleep(3)  # Wait for proxy readiness
             if self._process.poll() is not None:
                 stderr = ""
                 if self._process.stderr:
                     stderr = self._process.stderr.read().decode(errors="replace")
                 raise RuntimeError(f"lli proxy failed to start: {stderr}")
+            if not self._wait_for_proxy():
+                raise RuntimeError(
+                    f"lli proxy not reachable on port {self.port} after 10s"
+                )
         except FileNotFoundError:
             raise RuntimeError(
-                "lli not found. Install with: pip install llm-interceptor"
+                "lli command not found. Reinstall skill-perf."
             )
 
     def stop(self) -> None:
@@ -79,14 +99,20 @@ class ProxyManager:
             split_dir = os.path.join(self.trace_dir, "split_output")
 
             # Merge streaming chunks into complete records
-            subprocess.run(
+            merge_result = subprocess.run(
                 ["lli", "merge", "--input", raw_path, "--output", merged_path],
                 capture_output=True,
             )
+            if merge_result.returncode != 0:
+                _console.print(
+                    f"[yellow]Warning:[/yellow] lli merge failed "
+                    f"(exit {merge_result.returncode}): "
+                    f"{merge_result.stderr.decode(errors='replace').strip()}"
+                )
 
             # Split into individual request/response JSON files
             if os.path.exists(merged_path) and os.path.getsize(merged_path) > 0:
-                subprocess.run(
+                split_result = subprocess.run(
                     [
                         "lli", "split",
                         "--input", merged_path,
@@ -94,6 +120,12 @@ class ProxyManager:
                     ],
                     capture_output=True,
                 )
+                if split_result.returncode != 0:
+                    _console.print(
+                        f"[yellow]Warning:[/yellow] lli split failed "
+                        f"(exit {split_result.returncode}): "
+                        f"{split_result.stderr.decode(errors='replace').strip()}"
+                    )
 
     def __enter__(self) -> ProxyManager:
         self.start()

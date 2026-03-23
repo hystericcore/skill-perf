@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import socket
 import subprocess
 import time
 from dataclasses import dataclass
@@ -37,6 +38,17 @@ class CLIRunner:
             env["NODE_EXTRA_CA_CERTS"] = ca_path
         return env
 
+    def _check_proxy_ready(self) -> bool:
+        """Check if the proxy port is reachable."""
+        try:
+            sock = socket.create_connection(
+                ("localhost", self.proxy_port), timeout=2
+            )
+            sock.close()
+            return True
+        except OSError:
+            return False
+
     def run(
         self,
         prompt: str,
@@ -46,6 +58,14 @@ class CLIRunner:
         skill_dir: Optional[str] = None,
     ) -> RunResult:
         """Run CLI tool with given prompt."""
+        if not self._check_proxy_ready():
+            return RunResult(
+                exit_code=-1,
+                duration_ms=0,
+                stdout="",
+                stderr=f"Proxy not reachable on port {self.proxy_port}",
+            )
+
         cmd = self._build_command(prompt, cli, max_turns, skill_dir)
         env = self._get_env()
 
@@ -68,6 +88,14 @@ class CLIRunner:
                 duration_ms=duration_ms,
                 stdout="",
                 stderr="Timeout",
+            )
+        except OSError as exc:
+            duration_ms = int((time.time() - start) * 1000)
+            return RunResult(
+                exit_code=-1,
+                duration_ms=duration_ms,
+                stdout="",
+                stderr=str(exc),
             )
 
     def _build_command(

@@ -162,17 +162,19 @@ _EXPLORATION_TOOLS = {"glob", "grep", "listtool", "search"}
 _ACTION_TYPES = {"tool_call"}
 _ACTION_TOOLS = {"edit", "write", "create", "str_replace", "bash", "bashtool"}
 _EXPLORATION_THRESHOLD = 5
+_EXPLORATION_MIN_TOKENS = 500  # skip if total tokens below this
 
 
 def detect_excessive_exploration(steps: list[ConversationStep]) -> list[Issue]:
-    """Five or more consecutive glob/grep calls before an edit/write action."""
+    """Five or more consecutive glob/grep tool_call steps before an action."""
     issues: list[Issue] = []
     run_start: int | None = None
     run_length = 0
 
     for i, step in enumerate(steps):
         tool = (step.tool_name or "").lower()
-        if tool in _EXPLORATION_TOOLS:
+        # Only count tool_call steps, not tool_result
+        if tool in _EXPLORATION_TOOLS and step.step_type == "tool_call":
             if run_start is None:
                 run_start = i
             run_length += 1
@@ -182,23 +184,25 @@ def detect_excessive_exploration(steps: list[ConversationStep]) -> list[Issue]:
                     steps[j].token_count
                     for j in range(run_start, run_start + run_length)
                 )
-                issues.append(
-                    Issue(
-                        severity="warning",
-                        pattern="excessive_exploration",
-                        step_index=run_start,
-                        description=(
-                            f"{run_length} consecutive exploration calls "
-                            f"(glob/grep) before acting. "
-                            f"Total: {total_tokens:,} tokens."
-                        ),
-                        impact_tokens=total_tokens,
-                        suggestion=(
-                            "Skill instructions should tell the model exactly "
-                            "where to look, reducing exploratory searching."
-                        ),
+                if total_tokens >= _EXPLORATION_MIN_TOKENS:
+                    issues.append(
+                        Issue(
+                            severity="warning",
+                            pattern="excessive_exploration",
+                            step_index=run_start,
+                            description=(
+                                f"{run_length} consecutive exploration calls "
+                                f"(glob/grep) before acting. "
+                                f"Total: {total_tokens:,} tokens."
+                            ),
+                            impact_tokens=total_tokens,
+                            suggestion=(
+                                "Skill instructions should tell the model "
+                                "exactly where to look, reducing exploratory "
+                                "searching."
+                            ),
+                        )
                     )
-                )
             run_start = None
             run_length = 0
 
@@ -208,23 +212,25 @@ def detect_excessive_exploration(steps: list[ConversationStep]) -> list[Issue]:
             steps[j].token_count
             for j in range(run_start, run_start + run_length)
         )
-        issues.append(
-            Issue(
-                severity="warning",
-                pattern="excessive_exploration",
-                step_index=run_start,
-                description=(
-                    f"{run_length} consecutive exploration calls "
-                    f"(glob/grep) before acting. "
-                    f"Total: {total_tokens:,} tokens."
-                ),
-                impact_tokens=total_tokens,
-                suggestion=(
-                    "Skill instructions should tell the model exactly "
-                    "where to look, reducing exploratory searching."
-                ),
+        if total_tokens >= _EXPLORATION_MIN_TOKENS:
+            issues.append(
+                Issue(
+                    severity="warning",
+                    pattern="excessive_exploration",
+                    step_index=run_start,
+                    description=(
+                        f"{run_length} consecutive exploration calls "
+                        f"(glob/grep) before acting. "
+                        f"Total: {total_tokens:,} tokens."
+                    ),
+                    impact_tokens=total_tokens,
+                    suggestion=(
+                        "Skill instructions should tell the model "
+                        "exactly where to look, reducing exploratory "
+                        "searching."
+                    ),
+                )
             )
-        )
 
     return issues
 

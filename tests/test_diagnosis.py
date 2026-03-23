@@ -175,12 +175,12 @@ class TestDetectDuplicateReads:
 class TestDetectExcessiveExploration:
     def test_fires_on_6_consecutive_grep_glob(self):
         steps = [
-            _step(tool_name="Grep", token_count=30, description="grep: pattern1"),
-            _step(tool_name="Glob", token_count=20, description="glob: *.py"),
-            _step(tool_name="Grep", token_count=25, description="grep: pattern2"),
-            _step(tool_name="Grep", token_count=35, description="grep: pattern3"),
-            _step(tool_name="Glob", token_count=15, description="glob: src/*.ts"),
-            _step(tool_name="Grep", token_count=40, description="grep: pattern4"),
+            _step(tool_name="Grep", token_count=100, description="grep: pattern1"),
+            _step(tool_name="Glob", token_count=80, description="glob: *.py"),
+            _step(tool_name="Grep", token_count=120, description="grep: pattern2"),
+            _step(tool_name="Grep", token_count=90, description="grep: pattern3"),
+            _step(tool_name="Glob", token_count=70, description="glob: src/*.ts"),
+            _step(tool_name="Grep", token_count=100, description="grep: pattern4"),
             _step(tool_name="Edit", token_count=100, description="Edit file"),
         ]
         issues = detect_excessive_exploration(steps)

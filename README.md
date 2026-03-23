@@ -10,7 +10,7 @@ and verifies improvements -- a continuous optimization cycle for LLM skills.
 ## Install
 
 ```bash
-pip install skill-perf
+pipx install git+https://github.com/hystericcore/skill-perf.git
 ```
 
 ## Quick Start

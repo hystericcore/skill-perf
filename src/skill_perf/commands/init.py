@@ -16,15 +16,23 @@ GITHUB_URL = "https://github.com/hystericcore/skill-perf"
 def _get_skill_source_dir() -> str:
     """Get the path to the bundled skill/ directory in the package."""
     ref = importlib.resources.files("skill_perf")
+
+    # When installed via pip/pipx, skill files are at skill_perf/skill/
+    skill_dir = str(ref.joinpath("skill"))
+    if os.path.isdir(skill_dir):
+        return os.path.realpath(skill_dir)
+
+    # When running from source (editable install), try project root
     pkg_path = str(ref.joinpath("..", ".."))
     skill_dir = os.path.realpath(os.path.join(pkg_path, "skill"))
-    if not os.path.isdir(skill_dir):
-        console.print(
-            f"[red]Error:[/red] Bundled skill files not found.\n"
-            f"Download from: {GITHUB_URL}"
-        )
-        raise SystemExit(1)
-    return skill_dir
+    if os.path.isdir(skill_dir):
+        return skill_dir
+
+    console.print(
+        f"[red]Error:[/red] Bundled skill files not found.\n"
+        f"Download from: {GITHUB_URL}"
+    )
+    raise SystemExit(1)
 
 
 def _copy_skill_to(target_dir: str, keep: bool = False) -> None:

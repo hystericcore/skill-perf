@@ -23,11 +23,6 @@ pip install -e ".[dev]"
 skill-perf --help
 ```
 
-To also work on the proxy capture feature:
-
-```bash
-pip install -e ".[dev,capture]"
-```
 
 ## Running Tests
 
@@ -76,7 +71,8 @@ src/skill_perf/
 │   └── treemap.py      #   TreemapNode (recursive)
 ├── core/               # Shared utilities
 │   ├── tokenizer.py    #   count_tokens(), content_to_text()
-│   └── pricing.py      #   estimate_cost(), PRICING table
+│   ├── pricing.py      #   estimate_cost(), PRICING table
+│   └── config.py       #   ThresholdConfig, load_config()
 ├── parser/             # Trace file parsing
 │   ├── trace_reader.py #   parse_session() — main entry point
 │   ├── providers.py    #   detect_provider() from URL
@@ -84,16 +80,17 @@ src/skill_perf/
 │   ├── messages.py     #   parse_request(), parse_response_usage()
 │   └── streaming.py    #   parse_sse_response()
 ├── diagnosis/          # Waste pattern detection
-│   ├── patterns.py     #   8 detector functions
+│   ├── patterns.py     #   9 detector functions
 │   └── engine.py       #   diagnose() — runs all detectors
 ├── commands/           # CLI command implementations
+│   ├── init.py         #   skill-perf init
 │   ├── estimate.py     #   skill-perf estimate
 │   ├── diagnose.py     #   skill-perf diagnose
 │   ├── suggest.py      #   skill-perf suggest
 │   ├── measure.py      #   skill-perf measure
 │   └── verify.py       #   skill-perf verify
 ├── suggestion/         # Fix suggestion generation
-│   ├── templates.py    #   TEMPLATES dict (8 patterns)
+│   ├── templates.py    #   TEMPLATES dict (9 patterns)
 │   └── generator.py    #   generate_suggestion()
 ├── capture/            # Proxy + CLI orchestration
 │   ├── proxy.py        #   ProxyManager (lli lifecycle)
@@ -124,19 +121,20 @@ Test fixtures live in `tests/fixtures/` and match the real `llm-interceptor` (ll
        return issues
    ```
 
-2. Register it in `src/skill_perf/diagnosis/engine.py`:
-   ```python
-   ALL_PATTERNS = [..., detect_my_pattern]
-   ```
+2. Register it in `src/skill_perf/diagnosis/engine.py` (add to the appropriate
+   detector list — step-level or session-level).
 
-3. Add a suggestion template in `src/skill_perf/suggestion/templates.py`:
+3. If the pattern has a configurable threshold, add it to
+   `src/skill_perf/core/config.py` in `ThresholdConfig`.
+
+4. Add a suggestion template in `src/skill_perf/suggestion/templates.py`:
    ```python
    TEMPLATES["my_pattern"] = "Add to SKILL.md:\n..."
    ```
 
-4. Add tests in `tests/test_diagnosis.py` (positive and negative cases).
+5. Add tests in `tests/test_diagnosis.py` (positive and negative cases).
 
-5. Create or update a fixture in `tests/fixtures/` that triggers the pattern.
+6. Create or update a fixture in `tests/fixtures/` that triggers the pattern.
 
 ## Adding a New LLM Provider
 

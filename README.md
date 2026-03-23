@@ -48,7 +48,7 @@ skill-perf verify --baseline ./v1/traces/ --current ./v2/traces/
 
 1. **Measure** -- Run your skill against real prompts and capture every API
    request/response through a local proxy.
-2. **Diagnose** -- Detect the 8 built-in waste patterns (duplicate reads,
+2. **Diagnose** -- Detect 9 built-in waste patterns (duplicate reads,
    oversized skills, unused scripts, excessive exploration, and more).
 3. **Suggest** -- Get specific, actionable fixes with estimated token savings
    and dollar-cost reduction per call.
@@ -123,6 +123,18 @@ skill-perf measure --prompt "Parse JSON" --cli claude --port 9090 \
     --output ./results --max-turns 5 --timeout 180
 ```
 
+### `skill-perf config`
+
+Show or generate threshold configuration.
+
+```bash
+# Show current thresholds
+skill-perf config
+
+# Generate default .skill-perf.toml in your project
+skill-perf config --generate
+```
+
 ### `skill-perf diagnose`
 
 Parse captured trace sessions and detect waste patterns.
@@ -131,11 +143,18 @@ Parse captured trace sessions and detect waste patterns.
 # Diagnose a single session
 skill-perf diagnose ./bench_results/session-001/
 
-# Diagnose multiple sessions
-skill-perf diagnose ./bench_results/session-001/ ./bench_results/session-002/
-
 # Include skill directory for script detection
 skill-perf diagnose ./bench_results/session-001/ --skill ./my-skill/
+
+# Open interactive HTML treemap in browser
+skill-perf diagnose ./bench_results/session-001/ --open
+
+# Generate static HTML report
+skill-perf diagnose ./bench_results/session-001/ --static
+skill-perf diagnose ./bench_results/session-001/ --report ./report.html
+
+# Use custom threshold config
+skill-perf diagnose ./bench_results/session-001/ --config custom.toml
 
 # JSON output for programmatic use
 skill-perf diagnose ./bench_results/session-001/ --json
@@ -175,16 +194,17 @@ skill-perf verify --baseline ./v1/traces/ --current ./v2/traces/
 
 ## Waste Patterns
 
-skill-perf detects 8 built-in waste patterns:
+skill-perf detects 9 built-in waste patterns (thresholds are configurable via `.skill-perf.toml`):
 
 | Severity | Pattern | Description |
 |----------|---------|-------------|
 | critical | `script_not_executed` | Skill has `scripts/` but the model did work manually instead of running them |
 | warning | `large_file_read` | Tool result exceeds 2,000 tokens -- consider filtering or extracting relevant sections |
 | warning | `duplicate_read` | Same file read more than once across turns |
-| warning | `excessive_exploration` | 5+ consecutive glob/grep calls before taking action |
+| warning | `excessive_exploration` | 5+ consecutive glob/grep calls (>500 tokens) before taking action |
 | warning | `oversized_skill` | Skill file loaded with more than 3,000 tokens at once |
 | warning | `cat_on_large_file` | Using `cat` on a large file instead of grep/head/tail |
+| warning | `skill_not_triggered` | Prompt matches skill description but skill was never loaded |
 | info | `low_cache_rate` | API input tokens significantly exceed estimated content, suggesting poor cache utilization |
 | info | `high_think_ratio` | Model generating 3x+ more text than tool calls -- too much explaining, not enough doing |
 
@@ -201,9 +221,9 @@ skill-perf detects 8 built-in waste patterns:
    steps (system prompt, user message, tool calls, tool results, assistant
    responses) with per-step token counts.
 
-4. **Pattern detection** -- Eight detector functions scan the step sequence for
+4. **Pattern detection** -- Nine detector functions scan the step sequence for
    known waste patterns and emit issues with severity, token impact, and
-   suggested fixes.
+   suggested fixes. All thresholds are configurable.
 
 5. **Suggestion generation** -- Each issue is expanded into a detailed,
    actionable suggestion with estimated token and cost savings.
@@ -226,6 +246,31 @@ You can define reusable prompt suites in JSON for repeatable benchmarking:
 ```
 
 See `examples/test-suite.json` for a complete example.
+
+## Configuration
+
+All pattern detection thresholds are configurable via `.skill-perf.toml`:
+
+```bash
+# Generate default config
+skill-perf config --generate
+```
+
+This creates `.skill-perf.toml` with all thresholds:
+
+```toml
+[thresholds]
+large_file_read_tokens = 2000
+excessive_exploration_count = 5
+excessive_exploration_min_tokens = 500
+oversized_skill_tokens = 3000
+cat_on_large_file_tokens = 500
+high_think_ratio = 3.0
+low_cache_rate_ratio = 2.0
+```
+
+Place this file in your project root. skill-perf auto-loads it, or pass
+`--config path/to/config.toml` explicitly.
 
 ## Using with AI Coding Assistants
 

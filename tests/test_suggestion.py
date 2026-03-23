@@ -1,6 +1,5 @@
 """Tests for the suggestion module."""
 
-from __future__ import annotations
 
 import json
 

@@ -4,7 +4,6 @@ Pricing data ported from reference script skill_estimator.py and
 expanded with output pricing for full cost modelling.
 """
 
-from __future__ import annotations
 
 from pydantic import BaseModel
 

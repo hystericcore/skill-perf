@@ -1,6 +1,5 @@
 """Build hierarchical treemap data from a SessionAnalysis."""
 
-from __future__ import annotations
 
 from skill_perf.core.pricing import estimate_cost
 from skill_perf.models.diagnosis import Issue

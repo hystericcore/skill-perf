@@ -1,6 +1,5 @@
 """Generate a standalone HTML report with an interactive D3.js treemap."""
 
-from __future__ import annotations
 
 import json
 from pathlib import Path

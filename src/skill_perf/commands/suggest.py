@@ -1,6 +1,5 @@
 """Run suggestion generator on trace directories."""
 
-from __future__ import annotations
 
 import json
 

@@ -4,7 +4,6 @@ Ported from reference scripts: skill_estimator.py (count_tokens)
 and analyze_steps.py (content_to_text).
 """
 
-from __future__ import annotations
 
 import json
 

@@ -1,6 +1,5 @@
 """Diagnosis engine — runs all waste-pattern detectors on a session."""
 
-from __future__ import annotations
 
 from skill_perf.core.config import ThresholdConfig
 from skill_perf.diagnosis.patterns import (

@@ -1,6 +1,5 @@
 """Tests for the capture module and measure command."""
 
-from __future__ import annotations
 
 import json
 import os

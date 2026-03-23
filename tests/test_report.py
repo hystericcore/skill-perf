@@ -1,6 +1,5 @@
 """Tests for skill_perf.report — treemap builder and HTML generator."""
 
-from __future__ import annotations
 
 from skill_perf.models.diagnosis import Issue
 from skill_perf.models.session import SessionAnalysis

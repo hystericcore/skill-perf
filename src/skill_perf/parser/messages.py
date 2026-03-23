@@ -1,6 +1,5 @@
 """Parse API request/response bodies into ConversationStep lists."""
 
-from __future__ import annotations
 
 import json
 from typing import Any

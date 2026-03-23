@@ -1,6 +1,5 @@
 """Load test suite definitions from JSON files."""
 
-from __future__ import annotations
 
 import json
 from dataclasses import dataclass

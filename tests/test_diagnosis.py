@@ -1,6 +1,5 @@
 """Tests for the diagnosis module — 9 pattern detectors + engine + CLI."""
 
-from __future__ import annotations
 
 from pathlib import Path
 

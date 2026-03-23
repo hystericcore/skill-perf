@@ -1,6 +1,5 @@
 """Configuration for skill-perf thresholds and settings."""
 
-from __future__ import annotations
 
 import os
 from typing import Any

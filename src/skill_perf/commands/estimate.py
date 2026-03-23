@@ -6,7 +6,6 @@ classifies content into progressive-disclosure levels, and estimates cost
 across all known LLM providers.
 """
 
-from __future__ import annotations
 
 import json
 import re

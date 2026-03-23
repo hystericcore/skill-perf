@@ -1,6 +1,5 @@
 """Generate actionable fix suggestions for diagnosed issues."""
 
-from __future__ import annotations
 
 import re
 

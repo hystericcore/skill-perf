@@ -1,6 +1,5 @@
 """Read and parse LLI captured session directories into SessionAnalysis."""
 
-from __future__ import annotations
 
 import json
 import os

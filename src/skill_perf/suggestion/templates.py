@@ -1,6 +1,5 @@
 """Suggestion templates for all 9 diagnosis patterns."""
 
-from __future__ import annotations
 
 TEMPLATES: dict[str, str] = {
     "script_not_executed": """Add to SKILL.md:

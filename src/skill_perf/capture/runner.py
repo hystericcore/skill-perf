@@ -1,6 +1,5 @@
 """Run editor CLIs (claude, aider, cursor) non-interactively."""
 
-from __future__ import annotations
 
 import os
 import socket

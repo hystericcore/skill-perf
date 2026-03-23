@@ -1,6 +1,5 @@
 """Local HTTP server for viewing skill-perf HTML reports."""
 
-from __future__ import annotations
 
 import http.server
 import threading

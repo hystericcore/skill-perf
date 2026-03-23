@@ -4,7 +4,6 @@ Loads two trace directories, computes token/cost deltas, and shows
 which issues were resolved or remain.
 """
 
-from __future__ import annotations
 
 import os
 import webbrowser

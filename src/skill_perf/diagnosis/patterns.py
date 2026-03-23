@@ -7,7 +7,6 @@ objects describing diagnosed problems.
 Thresholds are configurable via ThresholdConfig (loaded from .skill-perf.toml).
 """
 
-from __future__ import annotations
 
 import os
 import re

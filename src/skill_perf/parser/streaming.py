@@ -1,6 +1,5 @@
 """Parse SSE (Server-Sent Events) streaming responses for token usage."""
 
-from __future__ import annotations
 
 import json
 from typing import Any

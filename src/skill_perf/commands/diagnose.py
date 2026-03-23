@@ -4,7 +4,6 @@ Parses captured LLI session directories, runs waste-pattern detectors,
 and prints a Rich terminal report (or JSON).
 """
 
-from __future__ import annotations
 
 import json
 import tempfile

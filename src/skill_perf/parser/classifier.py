@@ -1,6 +1,5 @@
 """Classify tool calls into step types for conversation analysis."""
 
-from __future__ import annotations
 
 from typing import Literal
 

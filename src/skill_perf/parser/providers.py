@@ -1,6 +1,5 @@
 """LLM provider detection from API URLs."""
 
-from __future__ import annotations
 
 _DOMAIN_MAP: dict[str, str] = {
     "api.anthropic.com": "anthropic",

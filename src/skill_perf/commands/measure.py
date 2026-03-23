@@ -1,6 +1,5 @@
 """Implementation of the `skill-perf measure` command."""
 
-from __future__ import annotations
 
 import os
 from datetime import datetime

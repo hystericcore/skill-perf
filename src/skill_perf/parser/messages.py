@@ -88,6 +88,7 @@ def parse_request(body: dict[str, Any]) -> list[ConversationStep]:
                     if isinstance(block, dict) and block.get("type") == "tool_result":
                         result_text = content_to_text(block.get("content", ""))
                         result_tokens = count_tokens(result_text)
+                        tool_use_id = block.get("tool_use_id", "") or None
                         steps.append(
                             ConversationStep(
                                 turn=turn,
@@ -95,6 +96,7 @@ def parse_request(body: dict[str, Any]) -> list[ConversationStep]:
                                 step_type="tool_result",
                                 description=f"Tool result ({result_tokens:,} tokens)",
                                 token_count=result_tokens,
+                                tool_use_id=tool_use_id,
                                 raw_content_preview=_preview(result_text),
                             )
                         )
@@ -121,6 +123,7 @@ def parse_request(body: dict[str, Any]) -> list[ConversationStep]:
                     elif block_type == "tool_use":
                         tool_name = block.get("name", "unknown")
                         tool_input = block.get("input", {})
+                        tool_use_id = block.get("id", "") or None
                         step_type, desc, file_path = classify_step(
                             tool_name, tool_input
                         )
@@ -135,6 +138,7 @@ def parse_request(body: dict[str, Any]) -> list[ConversationStep]:
                                 token_count=tokens,
                                 tool_name=tool_name,
                                 file_path=file_path or None,
+                                tool_use_id=tool_use_id,
                                 raw_content_preview=_preview(input_text),
                             )
                         )
@@ -151,7 +155,36 @@ def parse_request(body: dict[str, Any]) -> list[ConversationStep]:
                     )
                 )
 
+    # Post-process: propagate file_path from tool_use to matching tool_result
+    _propagate_tool_context(steps)
+
     return steps
+
+
+def _propagate_tool_context(steps: list[ConversationStep]) -> None:
+    """Copy tool_name and file_path from tool_use steps to their matching tool_result steps."""
+    # Build lookup: tool_use_id → (tool_name, file_path)
+    # Include tool_call, skill_load, and tool_result (Read on files
+    # is classified as tool_result but carries the file_path)
+    tool_use_map: dict[str, tuple[str | None, str | None]] = {}
+    for step in steps:
+        if step.tool_use_id and (step.tool_name or step.file_path):
+            # Only set if not already in map (first occurrence wins)
+            if step.tool_use_id not in tool_use_map:
+                tool_use_map[step.tool_use_id] = (step.tool_name, step.file_path)
+
+    # Propagate to tool_result steps that lack context
+    for step in steps:
+        if (
+            step.step_type == "tool_result"
+            and step.tool_use_id
+            and step.tool_use_id in tool_use_map
+        ):
+            name, path = tool_use_map[step.tool_use_id]
+            if not step.tool_name and name:
+                step.tool_name = name
+            if not step.file_path and path:
+                step.file_path = path
 
 
 def parse_response_usage(body: dict[str, Any], provider: str) -> tuple[int, int, str]:

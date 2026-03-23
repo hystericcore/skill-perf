@@ -22,4 +22,5 @@ class ConversationStep(BaseModel):
     token_count: int
     tool_name: str | None = None
     file_path: str | None = None
+    tool_use_id: str | None = None
     raw_content_preview: str = ""

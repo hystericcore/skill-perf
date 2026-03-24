@@ -48,7 +48,7 @@ skill-perf verify --baseline ./v1/traces/ --current ./v2/traces/
 
 1. **Measure** -- Run your skill against real prompts and capture every API
    request/response through a local proxy.
-2. **Diagnose** -- Detect 9 built-in waste patterns (duplicate reads,
+2. **Diagnose** -- Detect 10 built-in waste patterns (duplicate reads,
    oversized skills, unused scripts, excessive exploration, and more).
 3. **Suggest** -- Get specific, actionable fixes with estimated token savings
    and dollar-cost reduction per call.
@@ -263,7 +263,7 @@ Output:
 
 ## Waste Patterns
 
-skill-perf detects 9 built-in waste patterns (thresholds are configurable via `.skill-perf.toml`):
+skill-perf detects 10 built-in waste patterns (thresholds are configurable via `.skill-perf.toml`):
 
 | Severity | Pattern | Description |
 |----------|---------|-------------|
@@ -276,6 +276,7 @@ skill-perf detects 9 built-in waste patterns (thresholds are configurable via `.
 | warning | `skill_not_triggered` | Prompt matches skill description but skill was never loaded |
 | info | `low_cache_rate` | API input tokens significantly exceed estimated content, suggesting poor cache utilization |
 | info | `high_think_ratio` | Model generating 3x+ more text than tool calls -- too much explaining, not enough doing |
+| info | `inline_code_generation` | Model wrote 1000+ tokens of code inline that could be a bundled script |
 
 ## How It Works
 
@@ -294,7 +295,7 @@ for skill structure and progressive disclosure.
    steps (system prompt, user message, tool calls, tool results, assistant
    responses) with per-step token counts.
 
-4. **Pattern detection** -- Nine detector functions scan the step sequence for
+4. **Pattern detection** -- Ten detector functions scan the step sequence for
    known waste patterns and emit issues with severity, token impact, and
    suggested fixes. All thresholds are configurable.
 

@@ -1,4 +1,4 @@
-"""Tests for the diagnosis module — 9 pattern detectors + engine + CLI."""
+"""Tests for the diagnosis module — 10 pattern detectors + engine + CLI."""
 
 
 from pathlib import Path
@@ -9,6 +9,7 @@ from skill_perf.diagnosis.patterns import (
     detect_duplicate_reads,
     detect_excessive_exploration,
     detect_high_think_ratio,
+    detect_inline_code_generation,
     detect_large_file_read,
     detect_low_cache_rate,
     detect_oversized_skill,
@@ -378,6 +379,58 @@ class TestDetectSkillNotTriggered:
         )
         # think_act_ratio = 200 / 200 = 1.0 <= 3.0
         issues = detect_high_think_ratio(session)
+        assert len(issues) == 0
+
+
+# ===========================================================================
+# Pattern 10: inline_code_generation
+# ===========================================================================
+
+class TestDetectInlineCodeGeneration:
+    def test_fires_on_large_code_response(self):
+        steps = [
+            _step(
+                step_type="assistant_response",
+                token_count=1500,
+                raw_content_preview="def parse_csv(filepath):\n    import csv\n    with open(filepath)",
+            ),
+        ]
+        issues = detect_inline_code_generation(steps)
+        assert len(issues) == 1
+        assert issues[0].pattern == "inline_code_generation"
+        assert issues[0].severity == "info"
+
+    def test_no_issue_on_small_response(self):
+        steps = [
+            _step(
+                step_type="assistant_response",
+                token_count=200,
+                raw_content_preview="def helper(): pass",
+            ),
+        ]
+        issues = detect_inline_code_generation(steps)
+        assert len(issues) == 0
+
+    def test_no_issue_on_large_text_without_code(self):
+        steps = [
+            _step(
+                step_type="assistant_response",
+                token_count=2000,
+                raw_content_preview="I analyzed the codebase and found several issues with the architecture",
+            ),
+        ]
+        issues = detect_inline_code_generation(steps)
+        assert len(issues) == 0
+
+    def test_no_issue_on_tool_call(self):
+        steps = [
+            _step(
+                step_type="tool_call",
+                token_count=1500,
+                raw_content_preview="import csv",
+            ),
+        ]
+        issues = detect_inline_code_generation(steps)
         assert len(issues) == 0
 
 

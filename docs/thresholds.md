@@ -125,6 +125,15 @@ Prompt matches skill description but skill was never loaded.
 - **Source:** [Claude Code docs](https://code.claude.com/docs/en/skills) — "Skill descriptions are loaded into context so Claude knows what's available"
 - **Threshold:** Keyword matching between prompt and description (2+ keyword overlap)
 
+#### `inline_code_generation` (info)
+
+Model wrote significant code inline that could be a bundled script.
+
+- **Source:** [Blog post](https://claude.com/blog/equipping-agents-for-the-real-world-with-agent-skills) — "Deterministic operations (sorting, PDF parsing) should use pre-written Python scripts" for "consistency and repeatability"
+- **Source:** [Skills overview](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview) — "When Claude runs scripts, the script's code never loads into the context window. Only the output consumes tokens."
+- **Relationship:** This pattern suggests creating a script. Once created, `script_not_executed` enforces using it. They work as a pipeline: detect opportunity → create script → enforce usage.
+- **Threshold:** 1,000+ tokens in an assistant_response with code markers (`def `, `import `, `class `, `` ``` ``, etc.)
+
 ## Customizing thresholds
 
 ```bash

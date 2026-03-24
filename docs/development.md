@@ -80,7 +80,7 @@ src/skill_perf/
 │   ├── messages.py     #   parse_request(), parse_response_usage()
 │   └── streaming.py    #   parse_sse_response()
 ├── diagnosis/          # Waste pattern detection
-│   ├── patterns.py     #   9 detector functions
+│   ├── patterns.py     #   10 detector functions
 │   └── engine.py       #   diagnose() — runs all detectors
 ├── commands/           # CLI command implementations
 │   ├── init.py         #   skill-perf init
@@ -90,7 +90,7 @@ src/skill_perf/
 │   ├── measure.py      #   skill-perf measure
 │   └── verify.py       #   skill-perf verify
 ├── suggestion/         # Fix suggestion generation
-│   ├── templates.py    #   TEMPLATES dict (9 patterns)
+│   ├── templates.py    #   TEMPLATES dict (10 patterns)
 │   └── generator.py    #   generate_suggestion()
 ├── capture/            # Proxy + CLI orchestration
 │   ├── proxy.py        #   ProxyManager (lli lifecycle)

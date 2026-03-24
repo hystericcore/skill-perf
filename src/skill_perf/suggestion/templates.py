@@ -1,4 +1,4 @@
-"""Suggestion templates for all 9 diagnosis patterns."""
+"""Suggestion templates for all 10 diagnosis patterns."""
 
 
 TEMPLATES: dict[str, str] = {
@@ -70,4 +70,20 @@ TEMPLATES: dict[str, str] = {
   The description field determines when the skill is activated.
   If users ask relevant questions but the skill doesn't trigger,
   the description needs to better match their language.""",
+    "inline_code_generation": """Model generated {token_count} tokens of code \
+at step [{step_index}].
+
+  Create a reusable script:
+
+  1. Extract the generated code into scripts/<name>.py
+  2. Add to SKILL.md:
+     ```
+     ## <task>
+     ALWAYS use the bundled script:
+     ```bash
+     python scripts/<name>.py <input>
+     ```
+     Do NOT write this code inline.
+     ```
+  3. Scripts run without loading code into context, saving tokens.""",
 }

@@ -7,6 +7,7 @@ from skill_perf.diagnosis.patterns import (
     detect_duplicate_reads,
     detect_excessive_exploration,
     detect_high_think_ratio,
+    detect_inline_code_generation,
     detect_large_file_read,
     detect_low_cache_rate,
     detect_oversized_skill,
@@ -38,6 +39,7 @@ def diagnose(
     issues.extend(detect_excessive_exploration(session.steps, config=cfg))
     issues.extend(detect_oversized_skill(session.steps, config=cfg))
     issues.extend(detect_cat_on_large_file(session.steps, config=cfg))
+    issues.extend(detect_inline_code_generation(session.steps, config=cfg))
 
     # Session-level detectors (configurable thresholds)
     issues.extend(detect_low_cache_rate(session, config=cfg))

@@ -499,3 +499,60 @@ def detect_skill_not_triggered(
             ),
         )
     ]
+
+
+# ---------------------------------------------------------------------------
+# Pattern 10 — Inline code generation
+# ---------------------------------------------------------------------------
+
+_CODE_MARKERS = ("def ", "import ", "class ", "function ", "```", "const ", "let ", "var ")
+_INLINE_CODE_THRESHOLD = 1000  # tokens
+
+
+def detect_inline_code_generation(
+    steps: list[ConversationStep],
+    config: ThresholdConfig | None = None,
+) -> list[Issue]:
+    """Model wrote significant code inline that could be a bundled script.
+
+    Detects assistant_response steps with high token counts and code patterns
+    in the preview. Suggests creating a reusable script in scripts/.
+
+    Source: Blog post — "Deterministic operations should use pre-written
+    Python scripts" for "consistency and repeatability". Scripts execute
+    without loading code into context, saving tokens.
+    """
+    threshold = _INLINE_CODE_THRESHOLD
+    issues: list[Issue] = []
+
+    for i, step in enumerate(steps):
+        if step.step_type != "assistant_response":
+            continue
+        if step.token_count < threshold:
+            continue
+
+        preview = step.raw_content_preview.lower()
+        has_code = any(marker in preview for marker in _CODE_MARKERS)
+        if not has_code:
+            continue
+
+        issues.append(
+            Issue(
+                severity="info",
+                pattern="inline_code_generation",
+                step_index=i,
+                description=(
+                    f"Model generated {step.token_count:,} tokens of inline "
+                    f"code. Consider bundling as a reusable script in scripts/."
+                ),
+                impact_tokens=step.token_count,
+                suggestion=(
+                    "Create a script in scripts/ for this operation. "
+                    "Scripts execute without loading code into context, "
+                    "saving tokens and ensuring consistency. "
+                    "Add to SKILL.md: ALWAYS use python scripts/<name>.py"
+                ),
+            )
+        )
+
+    return issues

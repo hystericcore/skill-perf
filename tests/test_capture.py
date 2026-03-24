@@ -70,6 +70,46 @@ class TestCLIRunner:
             "--no-auto-commits",
         ]
 
+    def test_build_command_cursor(self) -> None:
+        runner = CLIRunner()
+        cmd = runner._build_command("do thing", cli="cursor", max_turns=3, skill_dir=None)
+        assert cmd[0] == "agent"
+        assert "-p" in cmd
+        assert "--output-format" in cmd
+        assert "--force" in cmd
+
+    def test_build_command_cursor_with_model(self) -> None:
+        runner = CLIRunner()
+        cmd = runner._build_command(
+            "do thing", cli="cursor", max_turns=3, skill_dir=None, model="sonnet-4"
+        )
+        assert "--model" in cmd
+        assert "sonnet-4" in cmd
+
+    def test_build_command_cursor_with_workspace(self) -> None:
+        runner = CLIRunner()
+        cmd = runner._build_command(
+            "do thing", cli="cursor", max_turns=3, skill_dir="/tmp/my-skill"
+        )
+        assert "--workspace" in cmd
+        assert "/tmp/my-skill" in cmd
+
+    def test_build_command_gemini(self) -> None:
+        runner = CLIRunner()
+        cmd = runner._build_command("do thing", cli="gemini", max_turns=3, skill_dir=None)
+        assert cmd[0] == "gemini"
+        assert "-p" in cmd
+        assert "--output-format" in cmd
+        assert "--yolo" in cmd
+
+    def test_build_command_gemini_with_model(self) -> None:
+        runner = CLIRunner()
+        cmd = runner._build_command(
+            "do thing", cli="gemini", max_turns=3, skill_dir=None, model="gemini-2.5-flash"
+        )
+        assert "--model" in cmd
+        assert "gemini-2.5-flash" in cmd
+
     def test_build_command_generic(self) -> None:
         runner = CLIRunner()
         cmd = runner._build_command("do thing", cli="my-tool", max_turns=3, skill_dir=None)

@@ -56,6 +56,7 @@ class CLIRunner:
         timeout: int = 120,
         skill_dir: Optional[str] = None,
         allowed_tools: str = "*",
+        model: Optional[str] = None,
     ) -> RunResult:
         """Run CLI tool with given prompt."""
         if not self._check_proxy_ready():
@@ -67,7 +68,7 @@ class CLIRunner:
             )
 
         cmd = self._build_command(
-            prompt, cli, max_turns, skill_dir, allowed_tools=allowed_tools
+            prompt, cli, max_turns, skill_dir, allowed_tools=allowed_tools, model=model
         )
         env = self._get_env()
 
@@ -107,6 +108,7 @@ class CLIRunner:
         max_turns: int,
         skill_dir: Optional[str],
         allowed_tools: str = "*",
+        model: Optional[str] = None,
     ) -> list[str]:
         """Build the CLI command for the specified tool."""
         if cli == "claude":
@@ -121,6 +123,8 @@ class CLIRunner:
                 "--allowedTools",
                 allowed_tools,
             ]
+            if model:
+                cmd.extend(["--model", model])
             if skill_dir:
                 cmd.extend(["--cwd", skill_dir])
             return cmd
@@ -132,5 +136,32 @@ class CLIRunner:
                 "--yes-always",
                 "--no-auto-commits",
             ]
+        elif cli in ("cursor", "agent"):
+            cmd = [
+                "agent",
+                "-p",
+                prompt,
+                "--output-format", "json",
+                "--force",
+                "--trust",
+            ]
+            if model:
+                cmd.extend(["--model", model])
+            if skill_dir:
+                cmd.extend(["--workspace", skill_dir])
+            return cmd
+        elif cli == "gemini":
+            cmd = [
+                "gemini",
+                "-p",
+                prompt,
+                "--output-format", "json",
+                "--yolo",
+            ]
+            if model:
+                cmd.extend(["--model", model])
+            if skill_dir:
+                cmd.extend(["--include-directories", skill_dir])
+            return cmd
         else:
             return [cli, prompt]

@@ -53,6 +53,17 @@ def init(
 
 
 @app.command()
+def create(
+    name: str = typer.Argument(..., help="Skill name (max 64 chars)"),
+    description: str = typer.Option("", "--description", "-d", help="Skill description"),
+    output: str = typer.Option(".", "--output", "-o", help="Output directory"),
+) -> None:
+    """Scaffold a new SKILL.md directory with valid structure."""
+    from skill_perf.commands.create import run_create
+    run_create(name=name, description=description, output_dir=output)
+
+
+@app.command()
 def estimate(
     paths: list[str] = typer.Argument(..., help="Path(s) to SKILL.md file(s) or directories"),
     compare: bool = typer.Option(False, "--compare", help="Compare multiple skill versions"),
@@ -69,7 +80,7 @@ def estimate(
 def measure(
     prompt: Optional[str] = typer.Option(None, "--prompt", "-p", help="Single prompt to run"),
     suite: Optional[str] = typer.Option(None, "--suite", help="Test suite JSON file"),
-    cli: str = typer.Option("claude", "--cli", help="CLI tool (claude, aider, cursor-cli)"),
+    cli: str = typer.Option("claude", "--cli", help="CLI tool (claude, cursor/agent, gemini, aider)"),
     port: int = typer.Option(9090, "--port", help="Proxy port"),
     output: str = typer.Option("./bench_results", "--output", help="Output directory"),
     max_turns: int = typer.Option(3, "--max-turns", help="Max conversation turns"),
@@ -83,6 +94,12 @@ def measure(
         "*",
         "--allowed-tools",
         help="Tools to allow without prompting (default: all)",
+    ),
+    model: Optional[str] = typer.Option(
+        "haiku",
+        "--model",
+        "-m",
+        help="Model to use (default: haiku for fast iteration)",
     ),
 ) -> None:
     """Run a skill and capture real token usage via proxy + CLI execution."""
@@ -100,6 +117,7 @@ def measure(
         skill_a=skill_a,
         skill_b=skill_b,
         allowed_tools=allowed_tools,
+        model=model,
     )
 
 

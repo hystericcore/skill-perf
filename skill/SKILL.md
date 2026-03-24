@@ -62,6 +62,18 @@ Run `skill-perf suggest <trace-directory>` to get actionable fixes. Each suggest
 
 ### Step 5: Apply suggestions to SKILL.md
 
+Before editing, snapshot the current version so you can diff afterwards:
+
+```
+skill-perf snapshot <skill-dir>
+```
+
+Then apply changes. Afterwards, review what changed:
+
+```
+skill-perf diff <skill-dir>
+```
+
 The tool's suggestions are templates. Apply them to the actual SKILL.md:
 - Preserve existing frontmatter fields (name, description)
 - Add instructions under relevant workflow sections

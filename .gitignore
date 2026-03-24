@@ -15,6 +15,7 @@ venv/
 .DS_Store
 *.zip
 bench_results/
+.snapshots/
 .claude/
 skill-perf/
 skill-perf-project/

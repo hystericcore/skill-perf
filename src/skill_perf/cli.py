@@ -172,6 +172,36 @@ def suggest(
 
 
 @app.command()
+def snapshot(
+    skill_dir: str = typer.Argument(..., help="Path to skill directory containing SKILL.md"),
+) -> None:
+    """Save a timestamped snapshot of SKILL.md before editing."""
+    from skill_perf.commands.snapshot import run_snapshot
+
+    run_snapshot(skill_dir)
+
+
+@app.command()
+def diff(
+    skill_dir: str = typer.Argument(..., help="Path to skill directory"),
+    from_snapshot: Optional[str] = typer.Option(
+        None, "--from", help="Snapshot file to diff from (default: latest snapshot)"
+    ),
+    to_snapshot: Optional[str] = typer.Option(
+        None, "--to", help="File to diff to (default: current SKILL.md)"
+    ),
+    list_snapshots: bool = typer.Option(False, "--list", help="List saved snapshots"),
+) -> None:
+    """Show diff between SKILL.md versions (snapshot vs current, or snapshot vs snapshot)."""
+    from skill_perf.commands.snapshot import run_diff, run_list_snapshots
+
+    if list_snapshots:
+        run_list_snapshots(skill_dir)
+    else:
+        run_diff(skill_dir, from_snapshot=from_snapshot, to_snapshot=to_snapshot)
+
+
+@app.command()
 def verify(
     baseline: str = typer.Option(
         ..., "--baseline", "-b", help="Path to baseline trace directory"

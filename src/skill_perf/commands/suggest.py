@@ -5,9 +5,12 @@ import json
 
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 
+from skill_perf.core.config import ThresholdConfig
 from skill_perf.diagnosis import diagnose
 from skill_perf.models.diagnosis import Issue
+from skill_perf.models.session import SessionAnalysis
 from skill_perf.parser.trace_reader import parse_session
 from skill_perf.suggestion.generator import estimate_savings, generate_suggestion
 
@@ -18,6 +21,53 @@ SEVERITY_ICON: dict[str, str] = {
     "warning": "\U0001f7e1",  # yellow circle
     "info": "\U0001f7e2",  # green circle
 }
+
+
+def _print_health_check(session: SessionAnalysis, config: ThresholdConfig) -> None:
+    """Print a threshold health table when no issues are detected."""
+    skill_tokens = session.tokens_by_type.get("skill_load", 0)
+    think_ratio = session.think_act_ratio or 0.0
+    cache_ratio = (
+        round(session.api_input_tokens / session.total_estimated_tokens, 2)
+        if session.total_estimated_tokens > 0
+        else 0.0
+    )
+
+    rows = [
+        (
+            "skill body tokens",
+            f"{skill_tokens:,}",
+            f"{config.oversized_skill_tokens:,}",
+            skill_tokens <= config.oversized_skill_tokens,
+        ),
+        (
+            "think / act ratio",
+            f"{think_ratio:.2f}x",
+            f"{config.high_think_ratio:.1f}x",
+            think_ratio <= config.high_think_ratio,
+        ),
+        (
+            "cache rate ratio",
+            f"{cache_ratio:.2f}x",
+            f"{config.low_cache_rate_ratio:.1f}x",
+            cache_ratio <= config.low_cache_rate_ratio,
+        ),
+    ]
+
+    table = Table(box=None, padding=(0, 2), show_header=True)
+    table.add_column("Metric", style="dim")
+    table.add_column("Value", justify="right")
+    table.add_column("Threshold", justify="right", style="dim")
+    table.add_column("Status", justify="center")
+
+    for name, value, threshold, ok in rows:
+        status = "[green]✓[/green]" if ok else "[yellow]near[/yellow]"
+        table.add_row(name, value, threshold, status)
+
+    console.print(f"\n  [green]✓ No issues — all metrics within thresholds[/green]")
+    console.print(f"  [dim]Session:[/dim] {session.session_id} ({session.model or 'unknown'})")
+    console.print()
+    console.print(table)
 
 
 def _print_suggestion(
@@ -84,9 +134,7 @@ def run_suggest(
 
         total = len(issues)
         if total == 0 and not json_output:
-            console.print(
-                f"\n  [green]No issues found[/green] in session {session.session_id}"
-            )
+            _print_health_check(session, config)
             continue
 
         if not json_output:

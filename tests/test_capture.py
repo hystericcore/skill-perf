@@ -56,8 +56,9 @@ class TestCLIRunner:
         cmd = runner._build_command(
             "hello", cli="claude", max_turns=5, skill_dir="/tmp/skill"
         )
-        assert "--cwd" in cmd
-        assert "/tmp/skill" in cmd
+        # skill_dir is passed as subprocess cwd, not a CLI flag
+        assert "--cwd" not in cmd
+        assert "/tmp/skill" not in cmd
 
     def test_build_command_aider(self) -> None:
         runner = CLIRunner()

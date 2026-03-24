@@ -75,7 +75,8 @@ class CLIRunner:
         start = time.time()
         try:
             result = subprocess.run(
-                cmd, env=env, capture_output=True, text=True, timeout=timeout
+                cmd, env=env, capture_output=True, text=True, timeout=timeout,
+                cwd=skill_dir or None,
             )
             duration_ms = int((time.time() - start) * 1000)
             return RunResult(
@@ -125,8 +126,7 @@ class CLIRunner:
             ]
             if model:
                 cmd.extend(["--model", model])
-            if skill_dir:
-                cmd.extend(["--cwd", skill_dir])
+            # skill_dir is passed as subprocess cwd, not a CLI flag
             return cmd
         elif cli == "aider":
             return [

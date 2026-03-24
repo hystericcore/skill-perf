@@ -76,26 +76,26 @@ skill-perf estimate ./v1/ ./v2/ --compare
 skill-perf estimate ./my-skill/ --json
 ```
 
-Sample output:
+Output:
 
 ```
-──────────────── Skill: csv-processor ────────────────
+───────────────────────────── Skill: csv-processor ─────────────────────────────
+
 Level 1 -- Metadata (always loaded)
-  description: 8 tokens  [under 50]
+  description: 6 tokens  [under 50]
 
 Level 2 -- SKILL.md body (on trigger)
-  SKILL.md body: 142 tokens (18 lines)  [under 2000]
+  SKILL.md body: 110 tokens (17 lines)  [under 2000]
 
 Level 3 -- References (on demand)
-  references/data-formats.md: 52 tokens
-  scripts/process_csv.py (exec only): 89 tokens
+  references/data-formats.md: 49 tokens
+  scripts/process_csv.py (exec only): 189 tokens
 
-  Total if fully loaded: 291 tokens
-
-──────────── Cost per call (full load) ─────────────
-  claude-sonnet-4              $0.000873
-  gpt-4o                       $0.000728
-  gemini-2.0-flash             $0.000022
+  Total if fully loaded: 354 tokens
+────────────────── Cost per call (skill loaded into context) ───────────────────
+  claude-sonnet-4              $0.001062
+  gpt-4o                       $0.000885
+  gemini-2.0-flash             $0.000035
   ollama-any                   FREE
 ```
 
@@ -135,6 +135,19 @@ skill-perf config
 skill-perf config --generate
 ```
 
+Output:
+
+```
+Current thresholds:
+  large_file_read_tokens: 2000
+  excessive_exploration_count: 5
+  excessive_exploration_min_tokens: 500
+  oversized_skill_tokens: 3000
+  cat_on_large_file_tokens: 500
+  high_think_ratio: 3.0
+  low_cache_rate_ratio: 2.0
+```
+
 ### `skill-perf diagnose`
 
 Parse captured trace sessions and detect waste patterns.
@@ -160,9 +173,28 @@ skill-perf diagnose ./bench_results/session-001/ --config custom.toml
 skill-perf diagnose ./bench_results/session-001/ --json
 ```
 
-Output includes a step-by-step breakdown with token counts, a token distribution
-chart by category, think/act ratio, and all diagnosed issues with severity and
-suggested fixes.
+Output:
+
+```
+───────────────────────────── Session: session_01 ──────────────────────────────
+  Model: claude-sonnet-4-20250514
+  API reported: in=1,500 out=350
+  Steps: 14
+
+Token distribution:
+ Category                    Tokens        %  Bar
+ tool_result                  5,508    49.8%  ████████████████████████░
+ user_message                 5,498    49.7%  ████████████████████████░
+ tool_call                       23     0.2%  ░░░░░░░░░░░░░░░░░░░░░░░░░
+ system_prompt                   14     0.1%  ░░░░░░░░░░░░░░░░░░░░░░░░░
+ skill_load                      11     0.1%  ░░░░░░░░░░░░░░░░░░░░░░░░░
+
+Diagnosed issues: 4 (~3,395 waste tokens, 30.7%)
+  🟡  duplicate_read (step 13, ~2,457 tokens)
+      Duplicate read: 'src/main.py' read 4 times.
+  🟡  large_file_read (step 11, ~457 tokens)
+      Large tool result: 2,457 tokens.
+```
 
 ### `skill-perf suggest`
 
@@ -177,12 +209,26 @@ skill-perf suggest ./bench_results/session-001/
 skill-perf suggest ./bench_results/session-001/ --json
 ```
 
-Each suggestion includes:
+Output:
 
-- The waste pattern and severity
-- Which step triggered it
-- A concrete fix with example code or SKILL.md changes
-- Estimated tokens saved per call and dollar-cost savings
+```
+  FIX 1 of 4: large_file_read (🟡 warning)
+  ──────────────────────────────────────────────
+  Step [10]: Large tool result: 2,457 tokens. (457 tokens)
+  Step [10]: Read on src/main.py (2,457 tokens)
+╭─────────────────────────────────────────────────────────────────────────╮
+│ File src/main.py loaded 2,457 tokens into context.                      │
+│                                                                         │
+│   Add to SKILL.md:                                                      │
+│                                                                         │
+│   ## Reading src/main.py                                                │
+│   Before reading this file:                                             │
+│   1. Use `grep -n '<pattern>' src/main.py` to find the relevant section │
+│   2. Read only the matching line range                                  │
+│   Never read the entire file.                                           │
+╰─────────────────────────────────────────────────────────────────────────╯
+  Estimated savings: ~457 tokens/call ($0.0014)
+```
 
 ### `skill-perf verify`
 
@@ -190,6 +236,30 @@ Re-run and confirm improvements against a baseline.
 
 ```bash
 skill-perf verify --baseline ./v1/traces/ --current ./v2/traces/
+```
+
+Output:
+
+```
+  VERIFICATION
+  ═══════════════════════════════════════════
+  Baseline (baseline):    29,149 tokens  |  ~$0.437
+  Current  (current):    25,853 tokens  |  ~$0.388
+                    ─────────────────────────
+  Improvement:   -3,296 tokens  | ~$-0.049
+  -11.3%      |  -11.3%
+
+  Category                 Baseline    Current      Delta    Change
+  ──────────────────────────────────────────────────────────────
+  system_prompt              17,044     17,057 +       +13     +0.1%
+  user_message               10,238      8,582     -1,656    -16.2%
+  tool_result                 1,775         82     -1,693    -95.4%
+  skill_load                     92         36        -56    -60.9%
+  tool_call                       0         96 +       +96       new
+
+  Issues resolved:  🔴0 -> ✅0
+  Issues remaining: none
+  ═══════════════════════════════════════════
 ```
 
 ## Waste Patterns

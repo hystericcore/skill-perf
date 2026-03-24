@@ -22,7 +22,8 @@ class ThresholdConfig(BaseModel):
     excessive_exploration_min_tokens: int = 500
 
     # oversized_skill: skill file token count above this triggers the pattern
-    oversized_skill_tokens: int = 3000
+    # official docs: SKILL.md body should be "under 5,000 tokens"
+    oversized_skill_tokens: int = 5000
 
     # cat_on_large_file: bash cat token count above this triggers the pattern
     cat_on_large_file_tokens: int = 500
@@ -82,7 +83,7 @@ excessive_exploration_count = {defaults.excessive_exploration_count}
 # excessive_exploration: skip if total tokens below this
 excessive_exploration_min_tokens = {defaults.excessive_exploration_min_tokens}
 
-# oversized_skill: flag skill files above this token count
+# oversized_skill: flag skill files above this token count (official: under 5k)
 oversized_skill_tokens = {defaults.oversized_skill_tokens}
 
 # cat_on_large_file: flag bash cat above this token count

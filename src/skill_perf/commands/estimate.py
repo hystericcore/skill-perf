@@ -20,9 +20,21 @@ from skill_perf.core import count_tokens, get_all_costs
 
 # ---------------------------------------------------------------------------
 # Size limits for warnings
+#
+# Official Anthropic guidelines:
+#   - description: max 1024 chars per skill
+#   - All descriptions share 2% of context window (fallback: 16,000 chars)
+#     → With 10 skills: ~1,600 chars each; with 50: ~320 chars (~90 tokens)
+#   - SKILL.md body: "under 5,000 tokens" (Level 2)
+#   - Level 3 resources: "effectively unlimited"
+#   - Level 1 metadata: ~100 tokens per skill
+#
+# Sources:
+#   https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview
+#   https://code.claude.com/docs/en/skills
 # ---------------------------------------------------------------------------
-LIMIT_DESCRIPTION_TOKENS = 50
-LIMIT_BODY_TOKENS = 2000
+LIMIT_DESCRIPTION_TOKENS = 100  # keep short — shares 2% context budget with all skills
+LIMIT_BODY_TOKENS = 5000  # official: "under 5k tokens"
 LIMIT_SINGLE_REF_TOKENS = 5000
 LIMIT_TOTAL_TOKENS = 10000
 

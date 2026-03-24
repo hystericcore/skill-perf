@@ -204,13 +204,13 @@ class TestDetectExcessiveExploration:
 class TestDetectOversizedSkill:
     def test_fires_on_large_skill_load(self):
         steps = [
-            _step(step_type="skill_load", token_count=5000, description="Load SKILL.md"),
+            _step(step_type="skill_load", token_count=6000, description="Load SKILL.md"),
         ]
         issues = detect_oversized_skill(steps)
         assert len(issues) == 1
         assert issues[0].severity == "warning"
         assert issues[0].pattern == "oversized_skill"
-        assert issues[0].impact_tokens == 2000  # 5000 - 3000
+        assert issues[0].impact_tokens == 1000  # 6000 - 5000
 
     def test_no_issue_on_small_skill(self):
         steps = [
@@ -390,8 +390,8 @@ class TestDiagnoseEngine:
         steps = [
             # Will trigger large_file_read (warning, impact 1000)
             _step(step_type="tool_result", token_count=3000, description="big file"),
-            # Will trigger oversized_skill (warning, impact 2000)
-            _step(step_type="skill_load", token_count=5000, description="big skill"),
+            # Will trigger oversized_skill (warning, impact 1000)
+            _step(step_type="skill_load", token_count=6000, description="big skill"),
         ]
         session = _session(steps=steps)
         issues = diagnose(session)

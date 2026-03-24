@@ -279,6 +279,10 @@ skill-perf detects 9 built-in waste patterns (thresholds are configurable via `.
 
 ## How It Works
 
+skill-perf builds on the [Agent Skills architecture](https://claude.com/blog/equipping-agents-for-the-real-world-with-agent-skills)
+and follows [official best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
+for skill structure and progressive disclosure.
+
 1. **Token counting** -- Uses `tiktoken` (cl100k_base) to count tokens in skill
    files, references, scripts, and captured API traffic.
 
@@ -296,6 +300,9 @@ skill-perf detects 9 built-in waste patterns (thresholds are configurable via `.
 
 5. **Suggestion generation** -- Each issue is expanded into a detailed,
    actionable suggestion with estimated token and cost savings.
+
+See [docs/thresholds.md](docs/thresholds.md) for threshold rationale and
+official Anthropic guidelines.
 
 ## Test Suite Format
 

@@ -55,9 +55,9 @@ class TestAnalyzeSkillDir:
         """Create a tmp skill with huge content, check warnings."""
         with tempfile.TemporaryDirectory() as tmpdir:
             skill = Path(tmpdir) / "SKILL.md"
-            # Create a description > 50 tokens, body > 2000 tokens
-            big_desc = "word " * 100  # ~100 tokens
-            big_body = "content word " * 3000  # ~3000+ tokens
+            # Create a description > 100 tokens, body > 5000 tokens
+            big_desc = "word " * 200  # ~200 tokens
+            big_body = "content word " * 5000  # ~5000+ tokens
             skill.write_text(
                 f"---\nname: big-skill\ndescription: {big_desc}\n---\n{big_body}\n"
             )

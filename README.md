@@ -59,8 +59,10 @@ skill-perf verify --baseline ./v1/traces/ --current ./v2/traces/
 
 ### `skill-perf estimate`
 
-Offline analysis of a skill directory. Counts tokens at each progressive-disclosure
-level, flags oversized components, and estimates cost across providers.
+Offline analysis of a skill directory. Validates format against the Anthropic skill
+spec (frontmatter, required fields, name/description length limits), counts tokens
+at each progressive-disclosure level, flags oversized components, and estimates
+cost across providers.
 
 ```bash
 # Analyze a single skill

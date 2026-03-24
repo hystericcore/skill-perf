@@ -53,6 +53,49 @@ class SkillEstimate:
 # ---------------------------------------------------------------------------
 _FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
+# Hard Anthropic spec limits (platform-enforced, not configurable)
+MAX_NAME_CHARS = 64
+MAX_DESCRIPTION_CHARS = 1024
+
+
+def _validate_skill(
+    meta: dict[str, str],
+    body: str,
+    has_frontmatter: bool,
+) -> list[str]:
+    """Return validation warnings for spec violations.
+
+    Warnings are prefixed with ``INVALID:`` to distinguish them from
+    soft token-threshold warnings.
+    """
+    issues: list[str] = []
+
+    if not has_frontmatter:
+        issues.append("INVALID: missing YAML frontmatter (--- delimiters)")
+
+    if "name" not in meta:
+        issues.append("INVALID: missing required field 'name' in frontmatter")
+
+    if "description" not in meta:
+        issues.append("INVALID: missing required field 'description' in frontmatter")
+
+    name = meta.get("name", "")
+    if name and len(name) > MAX_NAME_CHARS:
+        issues.append(
+            f"INVALID: name is {len(name)} chars (max {MAX_NAME_CHARS})"
+        )
+
+    desc = meta.get("description", "")
+    if desc and len(desc) > MAX_DESCRIPTION_CHARS:
+        issues.append(
+            f"INVALID: description is {len(desc)} chars (max {MAX_DESCRIPTION_CHARS})"
+        )
+
+    if not body.strip():
+        issues.append("INVALID: SKILL.md body is empty (no instructions)")
+
+    return issues
+
 
 def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
     """Return (metadata_dict, body_after_frontmatter).
@@ -123,12 +166,13 @@ def analyze_skill_dir(
         raise FileNotFoundError(f"SKILL.md not found at {skill_file}")
 
     raw_text = skill_file.read_text(encoding="utf-8")
+    has_frontmatter = bool(_FRONTMATTER_RE.match(raw_text))
     meta, body = _parse_frontmatter(raw_text)
     name = meta.get("name", skill_file.stem)
     description = meta.get("description", "")
 
     files: list[SkillFileInfo] = []
-    warnings: list[str] = []
+    warnings: list[str] = _validate_skill(meta, body, has_frontmatter)
 
     # -- Level 1: description (metadata) --
     desc_tokens = count_tokens(description)
@@ -258,7 +302,10 @@ def print_estimate(
     if estimate.warnings:
         out.print()
         for w in estimate.warnings:
-            out.print(f"  [bold yellow]WARNING:[/bold yellow] {w}")
+            if w.startswith("INVALID:"):
+                out.print(f"  [bold red]ERROR:[/bold red] {w[9:]}")
+            else:
+                out.print(f"  [bold yellow]WARNING:[/bold yellow] {w}")
 
     # -- Costs --
     out.rule("Cost per call (skill loaded into context)")

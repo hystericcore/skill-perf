@@ -41,7 +41,20 @@ Override: set `SLASH_COMMAND_TOOL_CHAR_BUDGET` environment variable.
 
 ## Default thresholds
 
+### Format validation (estimate command)
+
+Hard Anthropic spec limits — platform-enforced, not configurable:
+
+| Check | Limit | Source |
+|-------|-------|--------|
+| YAML frontmatter | Required (`---` delimiters) | [Skills overview](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview) |
+| `name` field | Required, max 64 chars | [Skills overview](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview) |
+| `description` field | Required, max 1,024 chars | [Skills overview](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview) |
+| Body content | Must not be empty | Practical — a skill with no instructions is unusable |
+
 ### Skill structure (estimate command)
+
+Configurable token thresholds (soft warnings, tunable via `.skill-perf.toml`):
 
 | Threshold | Default | Reasoning |
 |-----------|---------|-----------|

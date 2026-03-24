@@ -136,3 +136,76 @@ class TestEstimateCLI:
         """Non-existent path shows error."""
         result = runner.invoke(app, ["estimate", "/nonexistent/path"])
         assert result.exit_code != 0
+
+
+# ---------------------------------------------------------------------------
+# Format validation tests
+# ---------------------------------------------------------------------------
+
+
+class TestValidation:
+    def test_missing_frontmatter(self) -> None:
+        """SKILL.md without --- delimiters triggers INVALID warning."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skill = Path(tmpdir) / "SKILL.md"
+            skill.write_text("# Just markdown\nNo frontmatter here.\n")
+            est = analyze_skill_dir(str(skill))
+            invalid = [w for w in est.warnings if w.startswith("INVALID:")]
+            assert any("missing YAML frontmatter" in w for w in invalid)
+
+    def test_missing_name(self) -> None:
+        """Frontmatter without name field triggers INVALID warning."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skill = Path(tmpdir) / "SKILL.md"
+            skill.write_text("---\ndescription: A test skill\n---\nBody here.\n")
+            est = analyze_skill_dir(str(skill))
+            invalid = [w for w in est.warnings if w.startswith("INVALID:")]
+            assert any("missing required field 'name'" in w for w in invalid)
+
+    def test_missing_description(self) -> None:
+        """Frontmatter without description field triggers INVALID warning."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skill = Path(tmpdir) / "SKILL.md"
+            skill.write_text("---\nname: test-skill\n---\nBody here.\n")
+            est = analyze_skill_dir(str(skill))
+            invalid = [w for w in est.warnings if w.startswith("INVALID:")]
+            assert any("missing required field 'description'" in w for w in invalid)
+
+    def test_name_too_long(self) -> None:
+        """Name exceeding 64 chars triggers INVALID warning."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skill = Path(tmpdir) / "SKILL.md"
+            long_name = "a" * 65
+            skill.write_text(
+                f"---\nname: {long_name}\ndescription: A skill\n---\nBody.\n"
+            )
+            est = analyze_skill_dir(str(skill))
+            invalid = [w for w in est.warnings if w.startswith("INVALID:")]
+            assert any("name is 65 chars (max 64)" in w for w in invalid)
+
+    def test_description_too_long(self) -> None:
+        """Description exceeding 1024 chars triggers INVALID warning."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skill = Path(tmpdir) / "SKILL.md"
+            long_desc = "x" * 1025
+            skill.write_text(
+                f"---\nname: test\ndescription: {long_desc}\n---\nBody.\n"
+            )
+            est = analyze_skill_dir(str(skill))
+            invalid = [w for w in est.warnings if w.startswith("INVALID:")]
+            assert any("description is 1025 chars (max 1024)" in w for w in invalid)
+
+    def test_empty_body(self) -> None:
+        """Valid frontmatter with empty body triggers INVALID warning."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skill = Path(tmpdir) / "SKILL.md"
+            skill.write_text("---\nname: test\ndescription: A skill\n---\n")
+            est = analyze_skill_dir(str(skill))
+            invalid = [w for w in est.warnings if w.startswith("INVALID:")]
+            assert any("body is empty" in w for w in invalid)
+
+    def test_valid_skill_no_validation_errors(self) -> None:
+        """Existing sample-skill fixture should have no INVALID warnings."""
+        est = analyze_skill_dir(str(SAMPLE_SKILL))
+        invalid = [w for w in est.warnings if w.startswith("INVALID:")]
+        assert invalid == []

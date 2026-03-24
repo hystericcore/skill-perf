@@ -52,17 +52,78 @@ Override: set `SLASH_COMMAND_TOOL_CHAR_BUDGET` environment variable.
 
 ### Waste patterns (diagnose command)
 
-These thresholds have no official Anthropic guidance — they're heuristics from observed real-world usage patterns.
+Each pattern is grounded in official Anthropic guidance or observed real-world usage.
 
-| Threshold | Default | Reasoning |
-|-----------|---------|-----------|
-| `large_file_read_tokens` | 2,000 | From reference implementation. A 2K-token file read is large enough to justify using grep/head first. |
-| `excessive_exploration_count` | 5 | Design spec. 5+ consecutive searches suggests the model doesn't know where to look. |
-| `excessive_exploration_min_tokens` | 500 | Avoids flagging cheap grep/glob runs (<500 tokens is negligible). |
-| `oversized_skill_tokens` | 5,000 | Aligned with official "under 5,000 tokens" for SKILL.md body. |
-| `cat_on_large_file_tokens` | 500 | From reference implementation. `cat` on a 500+ token file should use grep instead. |
-| `high_think_ratio` | 3.0 | From reference implementation. 3x more assistant text than tool usage suggests over-explaining. |
-| `low_cache_rate_ratio` | 2.0 | Design spec. If API reports 2x more input tokens than estimated, caching may be underutilized. |
+#### `script_not_executed` (critical)
+
+Skill has `scripts/` but the model did work manually instead of running them.
+
+- **Source:** [Blog post](https://claude.com/blog/equipping-agents-for-the-real-world-with-agent-skills) — "Deterministic operations (sorting, PDF parsing) should use pre-written Python scripts" for "consistency and repeatability"
+- **Source:** [Best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) — "Low freedom" tasks should use "specific scripts, few or no parameters"
+- **Source:** [Skills overview](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview) — "When Claude runs scripts, the script's code never loads into the context window. Only the output consumes tokens."
+- **Threshold:** No token threshold — fires when scripts exist but none were executed
+
+#### `large_file_read` (warning)
+
+Tool result exceeds threshold — entire file loaded into context.
+
+- **Source:** [Skills overview](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview) — Progressive disclosure principle: "Claude reads only the files needed for each specific task"
+- **Source:** [Best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) — "The context window is a public good. Your Skill shares the context window with everything else Claude needs to know"
+- **Threshold:** `large_file_read_tokens = 2000` — heuristic from reference implementation
+
+#### `duplicate_read` (warning)
+
+Same file read multiple times across turns.
+
+- **Source:** [Skills overview](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview) — "Claude loads this metadata at startup" and reads files "only when referenced" — re-reading is redundant context cost
+- **Threshold:** No token threshold — fires on any duplicate file path
+
+#### `excessive_exploration` (warning)
+
+5+ consecutive glob/grep calls before taking action.
+
+- **Source:** [Blog post](https://claude.com/blog/equipping-agents-for-the-real-world-with-agent-skills) — Skills should provide "context Claude doesn't already have" to avoid exploration
+- **Source:** [Best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) — Use references for project structure so Claude doesn't need to explore
+- **Threshold:** `excessive_exploration_count = 5`, `excessive_exploration_min_tokens = 500`
+
+#### `oversized_skill` (warning)
+
+Skill file loaded with more than threshold tokens.
+
+- **Source:** [Skills overview](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview) — Level 2 content should be "Under 5k tokens"
+- **Source:** [Blog post](https://claude.com/blog/equipping-agents-for-the-real-world-with-agent-skills) — "When SKILL.md becomes unwieldy, split into separate files. Authors should segregate mutually exclusive contexts."
+- **Threshold:** `oversized_skill_tokens = 5000` — aligned with official "under 5k"
+
+#### `cat_on_large_file` (warning)
+
+Using `cat` via Bash to read entire files into context.
+
+- **Source:** [Skills overview](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview) — "Efficient script execution: the script's code never loads into the context window. Only the output consumes tokens."
+- **Threshold:** `cat_on_large_file_tokens = 500` — heuristic from reference implementation
+
+#### `low_cache_rate` (info)
+
+API input tokens significantly exceed estimated content.
+
+- **Source:** [Best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) — "The context window is a public good" — poor caching means re-processing tokens unnecessarily
+- **Threshold:** `low_cache_rate_ratio = 2.0` — if API reports 2x more than estimated, caching is likely underutilized
+
+#### `high_think_ratio` (info)
+
+Model generating 3x+ more text than tool calls.
+
+- **Source:** [Blog post](https://claude.com/blog/equipping-agents-for-the-real-world-with-agent-skills) — "Code execution" should handle deterministic operations, not token generation
+- **Source:** [Best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) — Concise instructions: "Does this paragraph justify its token cost?"
+- **Threshold:** `high_think_ratio = 3.0` — heuristic from reference implementation
+
+#### `skill_not_triggered` (warning)
+
+Prompt matches skill description but skill was never loaded.
+
+- **Source:** [Blog post](https://claude.com/blog/equipping-agents-for-the-real-world-with-agent-skills) — "Name/Description Optimization: These metadata fields drive triggering behavior — critical tuning points"
+- **Source:** [Best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) — "The description is critical for skill selection: Claude uses it to choose the right Skill from potentially 100+ available Skills"
+- **Source:** [Claude Code docs](https://code.claude.com/docs/en/skills) — "Skill descriptions are loaded into context so Claude knows what's available"
+- **Threshold:** Keyword matching between prompt and description (2+ keyword overlap)
 
 ## Customizing thresholds
 

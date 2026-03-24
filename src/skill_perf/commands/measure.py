@@ -1,6 +1,7 @@
 """Implementation of the `skill-perf measure` command."""
 
 
+import json
 import os
 from datetime import datetime
 from typing import Optional
@@ -21,6 +22,93 @@ def _make_run_dir(output_dir: str) -> str:
     run_dir = os.path.join(output_dir, f"bench_{timestamp}")
     os.makedirs(run_dir, exist_ok=True)
     return run_dir
+
+
+def _truncate_lines(text: str, max_lines: int = 3, max_width: int = 80) -> str:
+    """Truncate text to max_lines, each line to max_width chars."""
+    lines = text.splitlines()
+    preview_lines = []
+    for line in lines[:max_lines]:
+        if len(line) > max_width:
+            preview_lines.append(line[:max_width] + "...")
+        else:
+            preview_lines.append(line)
+    if len(lines) > max_lines:
+        preview_lines.append("...")
+    return "\n".join(preview_lines)
+
+
+def _format_stdout_preview(stdout: str) -> str:
+    """Return a compact preview of stdout content."""
+    if not stdout:
+        return "(empty)"
+    try:
+        data = json.loads(stdout)
+        if isinstance(data, dict) and "result" in data:
+            result_text = str(data["result"])
+            if not result_text:
+                return "JSON response (empty result)"
+            return _truncate_lines(result_text)
+        return f"JSON object ({len(stdout)} chars)"
+    except (json.JSONDecodeError, ValueError):
+        pass
+    return _truncate_lines(stdout)
+
+
+def _format_stderr_preview(stderr: str) -> str:
+    """Return a compact preview of stderr content."""
+    if not stderr:
+        return ""
+    lines = stderr.splitlines()
+    preview_lines = []
+    for line in lines[:2]:
+        if len(line) > 80:
+            preview_lines.append(line[:80] + "...")
+        else:
+            preview_lines.append(line)
+    if len(lines) > 2:
+        preview_lines.append("...")
+    return "\n".join(preview_lines)
+
+
+def _format_size(size_bytes: int) -> str:
+    """Format byte size to human-readable string."""
+    if size_bytes < 1024:
+        return f"{size_bytes} bytes"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    else:
+        return f"{size_bytes / (1024 * 1024):.1f} MB"
+
+
+def _check_skill_loaded(trace_dir: str) -> bool:
+    """Check if any skill was loaded by scanning trace files for Skill tool usage."""
+    for fname in os.listdir(trace_dir):
+        if not fname.endswith(".jsonl"):
+            continue
+        fpath = os.path.join(trace_dir, fname)
+        try:
+            with open(fpath, encoding="utf-8") as f:
+                for line in f:
+                    if '"Skill"' in line or '"skill_load"' in line:
+                        return True
+        except (OSError, UnicodeDecodeError):
+            continue
+    # Also check split_output/ if it exists
+    split_dir = os.path.join(trace_dir, "split_output")
+    if os.path.isdir(split_dir):
+        for fname in os.listdir(split_dir):
+            if not fname.endswith(".json"):
+                continue
+            fpath = os.path.join(split_dir, fname)
+            try:
+                with open(fpath, encoding="utf-8") as f:
+                    content = f.read()
+                    if '"Skill"' in content:
+                        return True
+            except (OSError, UnicodeDecodeError):
+                continue
+    return False
 
 
 def _print_summary(results: list[tuple[str, RunResult]], trace_dir: str) -> None:
@@ -44,8 +132,47 @@ def _print_summary(results: list[tuple[str, RunResult]], trace_dir: str) -> None
 
     console.print()
     console.print(table)
+
+    # Detail section: stdout/stderr previews per result
+    for label, result in results:
+        console.print(f"\n[bold cyan]{label}[/bold cyan]")
+        stdout_preview = _format_stdout_preview(result.stdout)
+        console.print(f"  [dim]stdout: {stdout_preview}[/dim]")
+        stderr_preview = _format_stderr_preview(result.stderr)
+        if stderr_preview:
+            console.print(f"  [dim red]stderr: {stderr_preview}[/dim red]")
+
+    # Trace file stats
+    trace_files = [
+        f for f in os.listdir(trace_dir)
+        if f.endswith(".jsonl") and os.path.getsize(os.path.join(trace_dir, f)) > 0
+    ] if os.path.isdir(trace_dir) else []
+
+    total_size = sum(
+        os.path.getsize(os.path.join(trace_dir, f)) for f in trace_files
+    ) if trace_files else 0
+
     console.print(f"\n[dim]Traces saved to:[/dim] {trace_dir}")
+    console.print(f"[dim]Trace files:[/dim]     {len(trace_files)} ({_format_size(total_size)})")
     console.print(f"[dim]Runs completed:[/dim]  {len(results)}")
+
+    if not trace_files:
+        console.print(
+            "[yellow]Warning:[/yellow] No trace files captured. "
+            "Check that the proxy was running and the CLI sent requests through it."
+        )
+        return
+
+    # Check if any skill was loaded in the captured traces
+    skill_loaded = _check_skill_loaded(trace_dir)
+    if skill_loaded:
+        console.print(f"[dim]Skill loaded:[/dim]    [green]yes[/green]")
+    else:
+        console.print(f"[dim]Skill loaded:[/dim]    [yellow]no[/yellow]")
+        console.print(
+            "[yellow]Warning:[/yellow] No skill was loaded during this run. "
+            "Diagnosis results may not reflect skill performance."
+        )
 
 
 def run_measure(
@@ -62,6 +189,7 @@ def run_measure(
     skill_a: Optional[str],
     skill_b: Optional[str],
     allowed_tools: str = "*",
+    model: Optional[str] = None,
 ) -> None:
     """Orchestrate: start proxy -> run CLI -> capture traces -> optionally diagnose."""
     # --- Validate inputs ---
@@ -81,7 +209,8 @@ def run_measure(
     results: list[tuple[str, RunResult]] = []
     runner = CLIRunner(proxy_port=port)
 
-    console.print(f"[bold]skill-perf measure[/bold]  output={run_dir}")
+    model_label = model or "default"
+    console.print(f"[bold]skill-perf measure[/bold]  output={run_dir}  model={model_label}")
 
     # --- Start proxy, run workloads, stop proxy ---
     proxy = ProxyManager(port=port, trace_dir=trace_dir)
@@ -96,13 +225,13 @@ def run_measure(
 
             result_a = runner.run(
                 prompt, cli=cli, max_turns=max_turns, timeout=timeout,
-                skill_dir=skill_a, allowed_tools=allowed_tools,
+                skill_dir=skill_a, allowed_tools=allowed_tools, model=model,
             )
             results.append(("skill_a", result_a))
 
             result_b = runner.run(
                 prompt, cli=cli, max_turns=max_turns, timeout=timeout,
-                skill_dir=skill_b, allowed_tools=allowed_tools,
+                skill_dir=skill_b, allowed_tools=allowed_tools, model=model,
             )
             results.append(("skill_b", result_b))
 
@@ -115,7 +244,7 @@ def run_measure(
                 console.print(f"  Running: {tc.label}")
                 result = runner.run(
                     tc.prompt, cli=cli, max_turns=max_turns, timeout=timeout,
-                    allowed_tools=allowed_tools,
+                    allowed_tools=allowed_tools, model=model,
                 )
                 results.append((tc.label, result))
 
@@ -125,24 +254,13 @@ def run_measure(
             console.print(f"  Running: {prompt[:80]}...")
             result = runner.run(
                 prompt, cli=cli, max_turns=max_turns, timeout=timeout,
-                allowed_tools=allowed_tools,
+                allowed_tools=allowed_tools, model=model,
             )
             results.append(("single", result))
 
     finally:
         proxy.stop()
         console.print("[green]Proxy stopped[/green]")
-
-    # --- Check if any traces were captured ---
-    trace_files = [
-        f for f in os.listdir(trace_dir)
-        if f.endswith(".jsonl") and os.path.getsize(os.path.join(trace_dir, f)) > 0
-    ] if os.path.isdir(trace_dir) else []
-    if not trace_files:
-        console.print(
-            "[yellow]Warning:[/yellow] No trace files captured. "
-            "Check that the proxy was running and the CLI sent requests through it."
-        )
 
     # --- Optional diagnosis ---
     if do_diagnose:

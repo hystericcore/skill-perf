@@ -35,13 +35,18 @@ Fix any ERROR-level issues before proceeding.
 
 Run `skill-perf measure -p "prompt" --diagnose` to capture real token usage via proxy.
 
+Key flags:
+- `--cli` — which coding assistant to invoke: `claude` (default), `cursor` / `agent`, `gemini`, `aider`
+- `--model` — model name passed to the CLI (default: `haiku` for fast/cheap iteration). Use the assistant's model ID, e.g. `claude-haiku-4-5`, `gemini-2.5-flash`, `gpt-4o`.
+- `--skill-a` / `--skill-b` + `--compare` — A/B test two skill versions in one run
+
 Reading the output:
 - **exit_code 0 + JSON stdout + traces captured** = successful run, proceed to diagnose
 - **exit_code -1 + "Timeout" stderr** = skill may be too complex, increase --timeout or simplify
 - **exit_code 0 + empty traces** = proxy not configured, check proxy setup
 - **exit_code != 0 + stderr errors** = CLI issue, investigate before diagnosing
 
-The stdout preview shows the CLI response. If it's JSON, the model completed normally. If empty or truncated, the run may not be meaningful for diagnosis.
+The stdout preview shows the final model response (`result` field for Claude JSON). If it's empty or the skill-loaded line shows `no`, the trace may not reflect real skill behaviour.
 
 ### Step 3: Diagnose captured traces
 

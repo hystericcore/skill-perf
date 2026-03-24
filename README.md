@@ -183,11 +183,11 @@ Output:
 
 Token distribution:
  Category                    Tokens        %  Bar
- tool_result                  5,508    49.8%  ████████████████████████░
- user_message                 5,498    49.7%  ████████████████████████░
- tool_call                       23     0.2%  ░░░░░░░░░░░░░░░░░░░░░░░░░
- system_prompt                   14     0.1%  ░░░░░░░░░░░░░░░░░░░░░░░░░
- skill_load                      11     0.1%  ░░░░░░░░░░░░░░░░░░░░░░░░░
+ tool_result                  5,508    49.8%  ############.............
+ user_message                 5,498    49.7%  ############.............
+ tool_call                       23     0.2%  .........................
+ system_prompt                   14     0.1%  .........................
+ skill_load                      11     0.1%  .........................
 
 Diagnosed issues: 4 (~3,395 waste tokens, 30.7%)
   🟡  duplicate_read (step 13, ~2,457 tokens)

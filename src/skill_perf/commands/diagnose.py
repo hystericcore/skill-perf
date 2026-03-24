@@ -94,7 +94,7 @@ def _print_session_report(
 
     for cat, tokens in sorted(by_type.items(), key=lambda x: -x[1]):
         pct = (tokens / total) * 100
-        bar_len = int(pct / 2)
+        bar_len = min(int(pct * 25 / 100), 25)
         color = _BAR_COLORS.get(cat, "white")
         bar_text = Text()
         bar_text.append("\u2588" * bar_len, style=color)

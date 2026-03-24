@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
+import shutil
 import socket
 import subprocess
+import sys
 import time
 
 from rich.console import Console
@@ -37,13 +39,28 @@ class ProxyManager:
                 time.sleep(0.3)
         return False
 
+    @staticmethod
+    def _find_lli() -> str:
+        """Find the lli executable, checking the current Python env first."""
+        # Check alongside the running Python (same venv/pipx env)
+        bin_dir = os.path.dirname(sys.executable)
+        local_lli = os.path.join(bin_dir, "lli")
+        if os.path.isfile(local_lli):
+            return local_lli
+        # Fall back to PATH
+        found = shutil.which("lli")
+        if found:
+            return found
+        raise FileNotFoundError("lli command not found. Reinstall skill-perf.")
+
     def start(self) -> None:
         """Start the lli proxy. Raises RuntimeError if lli not found or fails to start."""
         os.makedirs(self.trace_dir, exist_ok=True)
+        lli_cmd = self._find_lli()
         try:
             self._process = subprocess.Popen(
                 [
-                    "lli",
+                    lli_cmd,
                     "watch",
                     "--port",
                     str(self.port),
@@ -83,6 +100,11 @@ class ProxyManager:
 
     def _post_process(self) -> None:
         """Run lli merge + split on captured JSONL to produce structured output."""
+        try:
+            lli_cmd = self._find_lli()
+        except FileNotFoundError:
+            return
+
         # Find the raw JSONL file (lli names it all_captured_*.jsonl)
         raw_files = [
             f for f in os.listdir(self.trace_dir)
@@ -100,7 +122,7 @@ class ProxyManager:
 
             # Merge streaming chunks into complete records
             merge_result = subprocess.run(
-                ["lli", "merge", "--input", raw_path, "--output", merged_path],
+                [lli_cmd, "merge", "--input", raw_path, "--output", merged_path],
                 capture_output=True,
             )
             if merge_result.returncode != 0:
@@ -114,7 +136,7 @@ class ProxyManager:
             if os.path.exists(merged_path) and os.path.getsize(merged_path) > 0:
                 split_result = subprocess.run(
                     [
-                        "lli", "split",
+                        lli_cmd, "split",
                         "--input", merged_path,
                         "--output-dir", split_dir,
                     ],

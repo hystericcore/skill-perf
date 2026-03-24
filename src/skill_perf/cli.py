@@ -79,6 +79,11 @@ def measure(
     compare: bool = typer.Option(False, "--compare", help="A/B comparison mode"),
     skill_a: Optional[str] = typer.Option(None, "--skill-a", help="Skill version A directory"),
     skill_b: Optional[str] = typer.Option(None, "--skill-b", help="Skill version B directory"),
+    allowed_tools: str = typer.Option(
+        "*",
+        "--allowed-tools",
+        help="Tools to allow without prompting (default: all)",
+    ),
 ) -> None:
     """Run a skill and capture real token usage via proxy + CLI execution."""
     run_measure(
@@ -94,6 +99,7 @@ def measure(
         compare=compare,
         skill_a=skill_a,
         skill_b=skill_b,
+        allowed_tools=allowed_tools,
     )
 
 

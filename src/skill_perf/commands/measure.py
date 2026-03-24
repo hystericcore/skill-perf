@@ -61,6 +61,7 @@ def run_measure(
     compare: bool,
     skill_a: Optional[str],
     skill_b: Optional[str],
+    allowed_tools: str = "*",
 ) -> None:
     """Orchestrate: start proxy -> run CLI -> capture traces -> optionally diagnose."""
     # --- Validate inputs ---
@@ -94,12 +95,14 @@ def run_measure(
             console.print(f"[cyan]A/B compare:[/cyan] skill_a={skill_a}  skill_b={skill_b}")
 
             result_a = runner.run(
-                prompt, cli=cli, max_turns=max_turns, timeout=timeout, skill_dir=skill_a
+                prompt, cli=cli, max_turns=max_turns, timeout=timeout,
+                skill_dir=skill_a, allowed_tools=allowed_tools,
             )
             results.append(("skill_a", result_a))
 
             result_b = runner.run(
-                prompt, cli=cli, max_turns=max_turns, timeout=timeout, skill_dir=skill_b
+                prompt, cli=cli, max_turns=max_turns, timeout=timeout,
+                skill_dir=skill_b, allowed_tools=allowed_tools,
             )
             results.append(("skill_b", result_b))
 
@@ -111,7 +114,8 @@ def run_measure(
             for tc in test_cases:
                 console.print(f"  Running: {tc.label}")
                 result = runner.run(
-                    tc.prompt, cli=cli, max_turns=max_turns, timeout=timeout
+                    tc.prompt, cli=cli, max_turns=max_turns, timeout=timeout,
+                    allowed_tools=allowed_tools,
                 )
                 results.append((tc.label, result))
 
@@ -120,7 +124,8 @@ def run_measure(
             assert prompt is not None
             console.print(f"  Running: {prompt[:80]}...")
             result = runner.run(
-                prompt, cli=cli, max_turns=max_turns, timeout=timeout
+                prompt, cli=cli, max_turns=max_turns, timeout=timeout,
+                allowed_tools=allowed_tools,
             )
             results.append(("single", result))
 

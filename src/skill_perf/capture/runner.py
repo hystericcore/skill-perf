@@ -55,6 +55,7 @@ class CLIRunner:
         max_turns: int = 3,
         timeout: int = 120,
         skill_dir: Optional[str] = None,
+        allowed_tools: str = "*",
     ) -> RunResult:
         """Run CLI tool with given prompt."""
         if not self._check_proxy_ready():
@@ -65,7 +66,9 @@ class CLIRunner:
                 stderr=f"Proxy not reachable on port {self.proxy_port}",
             )
 
-        cmd = self._build_command(prompt, cli, max_turns, skill_dir)
+        cmd = self._build_command(
+            prompt, cli, max_turns, skill_dir, allowed_tools=allowed_tools
+        )
         env = self._get_env()
 
         start = time.time()
@@ -103,6 +106,7 @@ class CLIRunner:
         cli: str,
         max_turns: int,
         skill_dir: Optional[str],
+        allowed_tools: str = "*",
     ) -> list[str]:
         """Build the CLI command for the specified tool."""
         if cli == "claude":
@@ -114,6 +118,8 @@ class CLIRunner:
                 "json",
                 "--max-turns",
                 str(max_turns),
+                "--allowedTools",
+                allowed_tools,
             ]
             if skill_dir:
                 cmd.extend(["--cwd", skill_dir])

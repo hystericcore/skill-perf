@@ -47,6 +47,8 @@ class TestCLIRunner:
             "json",
             "--max-turns",
             "3",
+            "--allowedTools",
+            "*",
         ]
 
     def test_build_command_claude_with_skill(self) -> None:

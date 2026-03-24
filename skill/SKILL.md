@@ -62,16 +62,23 @@ Run `skill-perf suggest <trace-directory>` to get actionable fixes. Each suggest
 
 ### Step 5: Apply suggestions to SKILL.md
 
-Before editing, snapshot the current version so you can diff afterwards:
+Skill directories are often **outside any git repo** (e.g. `~/.claude/agents/my-skill`,
+`.cursor/skills/my-skill`, `.agents/skills/my-skill`), so `git diff` won't help.
+Use skill-perf's own snapshot system instead.
+
+Before editing, snapshot the current version:
 
 ```
 skill-perf snapshot <skill-dir>
+# e.g. skill-perf snapshot ~/.claude/agents/my-skill
 ```
 
-Then apply changes. Afterwards, review what changed:
+Then apply changes. Afterwards, review exactly what changed:
 
 ```
 skill-perf diff <skill-dir>
+# list all saved snapshots
+skill-perf diff <skill-dir> --list
 ```
 
 The tool's suggestions are templates. Apply them to the actual SKILL.md:

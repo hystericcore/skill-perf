@@ -173,9 +173,25 @@ def suggest(
 
 @app.command()
 def snapshot(
-    skill_dir: str = typer.Argument(..., help="Path to skill directory containing SKILL.md"),
+    skill_dir: str = typer.Argument(
+        ...,
+        help=(
+            "Path to skill directory containing SKILL.md. "
+            "Works anywhere — inside or outside a git repo "
+            "(e.g. ~/.claude/agents/my-skill, .cursor/skills/my-skill, .agents/skills/my-skill). "
+            "Snapshot is saved to <skill-dir>/.snapshots/ alongside SKILL.md."
+        ),
+    ),
 ) -> None:
-    """Save a timestamped snapshot of SKILL.md before editing."""
+    """Save a timestamped snapshot of SKILL.md before editing.
+
+    Use this before letting an LLM apply suggestions so you can diff
+    exactly what changed — even when the skill lives outside any git tree
+    (e.g. ~/.claude/agents/, .cursor/skills/, .agents/skills/).
+
+    Snapshots are stored in <skill-dir>/.snapshots/ and are never committed
+    to git (added to .gitignore automatically if a repo is present).
+    """
     from skill_perf.commands.snapshot import run_snapshot
 
     run_snapshot(skill_dir)
@@ -183,7 +199,13 @@ def snapshot(
 
 @app.command()
 def diff(
-    skill_dir: str = typer.Argument(..., help="Path to skill directory"),
+    skill_dir: str = typer.Argument(
+        ...,
+        help=(
+            "Path to skill directory. Works outside git — "
+            "e.g. ~/.claude/agents/my-skill or .cursor/skills/my-skill."
+        ),
+    ),
     from_snapshot: Optional[str] = typer.Option(
         None, "--from", help="Snapshot file to diff from (default: latest snapshot)"
     ),
@@ -192,7 +214,25 @@ def diff(
     ),
     list_snapshots: bool = typer.Option(False, "--list", help="List saved snapshots"),
 ) -> None:
-    """Show diff between SKILL.md versions (snapshot vs current, or snapshot vs snapshot)."""
+    """Show diff between SKILL.md versions (snapshot vs current, or snapshot vs snapshot).
+
+    Because skill directories often live outside any git repo
+    (e.g. ~/.claude/agents/, .cursor/skills/, .agents/skills/),
+    skill-perf maintains its own snapshot history in <skill-dir>/.snapshots/.
+
+    Examples:
+
+      # diff current SKILL.md against latest snapshot
+      skill-perf diff ~/.claude/agents/my-skill
+
+      # diff two specific snapshots
+      skill-perf diff ~/.claude/agents/my-skill \\
+        --from .snapshots/SKILL_20240101_120000.md \\
+        --to   .snapshots/SKILL_20240102_090000.md
+
+      # list all saved snapshots
+      skill-perf diff ~/.claude/agents/my-skill --list
+    """
     from skill_perf.commands.snapshot import run_diff, run_list_snapshots
 
     if list_snapshots:

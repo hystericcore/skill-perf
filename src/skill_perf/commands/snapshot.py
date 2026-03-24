@@ -40,6 +40,9 @@ def run_snapshot(skill_dir: str) -> str:
     snap_file.write_text(skill_path.read_text(encoding="utf-8"), encoding="utf-8")
 
     console.print(f"[green]Snapshot saved:[/green] {snap_file}")
+    console.print(
+        f"[dim]Run [bold]skill-perf diff {skill_dir}[/bold] after editing to see what changed.[/dim]"
+    )
     return str(snap_file)
 
 

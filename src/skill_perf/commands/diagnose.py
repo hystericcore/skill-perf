@@ -130,7 +130,8 @@ def _print_session_report(
             icon = _SEVERITY_ICONS.get(iss.severity, "?")
             console.print(
                 f"  {icon} [{iss.severity}] {iss.pattern} "
-                f"(step {iss.step_index + 1}, ~{iss.impact_tokens:,} tokens)"
+                f"(step {iss.step_index + 1}, "
+                f"[red]+{iss.impact_tokens:,} tokens over threshold[/red])"
             )
             console.print(f"      {iss.description}")
             console.print(f"      [dim]{iss.suggestion}[/dim]")

@@ -89,7 +89,7 @@ def _print_suggestion(
     console.print(f"  {'─' * 46}")
     console.print(
         f"  Step [{issue.step_index}]: {issue.description} "
-        f"({issue.impact_tokens:,} tokens)"
+        f"([red]+{issue.impact_tokens:,} tokens over threshold[/red])"
     )
 
     # Show step-specific context if available

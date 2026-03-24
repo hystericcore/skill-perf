@@ -102,10 +102,9 @@ def diagnose(
     ),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
     open_browser: bool = typer.Option(False, "--open", help="Open HTML treemap in browser"),
-    static: bool = typer.Option(
-        False, "--static", help="Generate static HTML report"
+    report: Optional[str] = typer.Option(
+        None, "--report", help="Save HTML report to file"
     ),
-    report: Optional[str] = typer.Option(None, "--report", help="Output HTML report path"),
     config: Optional[str] = typer.Option(
         None, "--config", help="Path to .skill-perf.toml config file"
     ),
@@ -118,7 +117,6 @@ def diagnose(
         skill_dir=skill_dir,
         json_output=json_output,
         open_browser=open_browser,
-        static=static,
         report=report,
         config_path=config,
     )

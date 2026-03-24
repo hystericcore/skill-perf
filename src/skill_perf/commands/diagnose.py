@@ -174,7 +174,6 @@ def run_diagnose(
     skill_dir: str | None = None,
     json_output: bool = False,
     open_browser: bool = False,
-    static: bool = False,
     report: str | None = None,
     config_path: str | None = None,
 ) -> None:
@@ -203,7 +202,7 @@ def run_diagnose(
     # --- HTML report generation ---
     # Use the last parsed session for the report (multi-session reports
     # could be extended later; for now one treemap per invocation).
-    if report or static or open_browser:
+    if report or open_browser:
         last_session, last_issues = sessions[-1]
         model = last_session.model or "claude-sonnet-4"
 
@@ -212,13 +211,6 @@ def run_diagnose(
                 last_session, last_issues, output_path=report, model=model,
             )
             console.print(f"[green]HTML report saved to {report}[/green]")
-
-        if static:
-            static_path = "./skill-perf-report.html"
-            generate_html_report(
-                last_session, last_issues, output_path=static_path, model=model,
-            )
-            console.print(f"[green]Static HTML report saved to {static_path}[/green]")
 
         if open_browser:
             tmp = tempfile.NamedTemporaryFile(

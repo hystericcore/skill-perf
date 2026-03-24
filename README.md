@@ -162,8 +162,7 @@ skill-perf diagnose ./bench_results/session-001/ --skill ./my-skill/
 # Open interactive HTML treemap in browser
 skill-perf diagnose ./bench_results/session-001/ --open
 
-# Generate static HTML report
-skill-perf diagnose ./bench_results/session-001/ --static
+# Save HTML report to file
 skill-perf diagnose ./bench_results/session-001/ --report ./report.html
 
 # Use custom threshold config

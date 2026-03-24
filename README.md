@@ -16,220 +16,300 @@ pipx install git+https://github.com/hystericcore/skill-perf.git
 ## Quick Start
 
 ```bash
-# 1. Estimate your skill's token footprint (no API call needed)
-skill-perf estimate ./my-skill/SKILL.md
+# 0. Scaffold a new skill
+skill-perf create my-skill -d "Does something useful"
 
-# 2. Measure real token usage via proxy capture
-skill-perf measure --prompt "Create a CSV parser" --diagnose --open
+# 1. Estimate token footprint and validate format (no API call needed)
+skill-perf estimate ./my-skill/
+
+# 2. Snapshot before measuring so you can diff changes later
+skill-perf measure --prompt "Create a CSV parser" \
+    --skill ./my-skill/ --snapshot --diagnose
 
 # 3. Diagnose captured traces for waste patterns
-skill-perf diagnose ./bench_results/session-001/
+skill-perf diagnose ./bench_results/bench_20260325_010838/traces/
 
 # 4. Get actionable fix suggestions
-skill-perf suggest ./bench_results/session-001/
+skill-perf suggest ./bench_results/bench_20260325_010838/traces/
 
-# 5. Verify improvements between versions
+# 5. Edit SKILL.md, then diff what changed
+skill-perf diff ./my-skill/
+
+# 6. Verify improvements against baseline
 skill-perf verify --baseline ./v1/traces/ --current ./v2/traces/
 ```
 
 ## The Improvement Cycle
 
 ```
-  Measure          Diagnose          Suggest           Verify
-+-----------+    +-----------+    +-----------+    +-----------+
-| Capture   |--->| Find waste|--->| Get fixes |--->| Compare   |
-| real token|    | patterns  |    | with token|    | before &  |
-| usage     |    | & hotspots|    | savings   |    | after     |
-+-----------+    +-----------+    +-----------+    +-----------+
-      ^                                                  |
-      +--------------------------------------------------+
-                     Iterate until lean
+  Create/         Measure          Diagnose          Suggest          Verify
+  Estimate
++-----------+   +-----------+    +-----------+    +-----------+    +-----------+
+| Scaffold  |   | Capture   |--->| Find waste|--->| Get fixes |--->| Compare   |
+| validate  |   | real token|    | patterns  |    | with token|    | before &  |
+| & format  |   | usage     |    | & hotspots|    | savings   |    | after     |
++-----------+   +-----------+    +-----------+    +-----------+    +-----------+
+                      ^           snapshot/diff                          |
+                      +------------------------------------------------->+
+                                       Iterate until lean
 ```
-
-1. **Measure** -- Run your skill against real prompts and capture every API
-   request/response through a local proxy.
-2. **Diagnose** -- Detect 10 built-in waste patterns (duplicate reads,
-   oversized skills, unused scripts, excessive exploration, and more).
-3. **Suggest** -- Get specific, actionable fixes with estimated token savings
-   and dollar-cost reduction per call.
-4. **Verify** -- Re-run after applying fixes and confirm improvements
-   against the baseline.
 
 ## Commands
 
-### `skill-perf estimate`
+### `skill-perf create`
 
-Offline analysis of a skill directory. Validates format against the Anthropic skill
-spec (frontmatter, required fields, name/description length limits), counts tokens
-at each progressive-disclosure level, flags oversized components, and estimates
-cost across providers.
+Scaffold a new SKILL.md directory with valid structure and correct frontmatter.
 
 ```bash
-# Analyze a single skill
-skill-perf estimate ./my-skill/SKILL.md
+skill-perf create my-skill -d "Analyze stocks and produce BUY/WAIT/AVOID recommendations"
+```
 
-# Analyze a directory of skills
-skill-perf estimate ./skills/
+Output:
 
-# Compare two skill versions side by side
+```
+Created skill directory: ./my-skill/
+  my-skill/SKILL.md
+  my-skill/references/.gitkeep
+  my-skill/scripts/.gitkeep
+
+Next: run `skill-perf estimate ./my-skill/` to validate.
+```
+
+---
+
+### `skill-perf estimate`
+
+Offline analysis. Validates format against the Anthropic skill spec (frontmatter,
+required fields, name/description length limits), counts tokens at each
+progressive-disclosure level, and estimates cost across providers.
+
+```bash
+# Analyze a skill directory
+skill-perf estimate ./my-skill/
+
+# Compare two versions side by side
 skill-perf estimate ./v1/ ./v2/ --compare
 
-# Output as JSON for CI pipelines
+# JSON output for CI
 skill-perf estimate ./my-skill/ --json
 ```
 
 Output:
 
 ```
-───────────────────────────── Skill: csv-processor ─────────────────────────────
+──────────────────────────── Skill: analyze-stocks ─────────────────────────────
 
 Level 1 -- Metadata (always loaded)
-  description: 6 tokens  [under 50]
+  description: 36 tokens  [under 100]
 
 Level 2 -- SKILL.md body (on trigger)
-  SKILL.md body: 110 tokens (17 lines)  [under 2000]
+  SKILL.md body: 2367 tokens (201 lines)  [under 5000]
 
-Level 3 -- References (on demand)
-  references/data-formats.md: 49 tokens
-  scripts/process_csv.py (exec only): 189 tokens
-
-  Total if fully loaded: 354 tokens
+  Total if fully loaded: 2,403 tokens
 ────────────────── Cost per call (skill loaded into context) ───────────────────
-  claude-sonnet-4              $0.001062
-  gpt-4o                       $0.000885
-  gemini-2.0-flash             $0.000035
+  claude-sonnet-4              $0.007209
+  gpt-4o                       $0.006008
+  gemini-2.0-flash             $0.000240
   ollama-any                   FREE
 ```
+
+If validation errors exist they appear as red `ERROR:` lines before proceeding.
+
+---
 
 ### `skill-perf measure`
 
 Run a skill against one or more prompts and capture real token usage through a
-local llm-interceptor (lli) proxy.
+local proxy. Defaults to `haiku` for fast, cheap iteration cycles.
 
 ```bash
-# Single prompt
-skill-perf measure --prompt "Create a CSV parser"
+# Single prompt with skill dir and auto-snapshot
+skill-perf measure --prompt "Analyze AAPL" \
+    --skill ./.agents/skills/analyze-stocks --snapshot
 
-# Run a test suite (see examples/test-suite.json for format)
-skill-perf measure --suite ./examples/test-suite.json
+# Use a different CLI or model
+skill-perf measure --prompt "Analyze AAPL" --cli gemini --model gemini-2.5-flash
 
-# Capture and immediately diagnose + open report
-skill-perf measure --prompt "Refactor this module" --diagnose --open
+# Run a test suite
+skill-perf measure --suite ./examples/test-suite.json --skill ./my-skill/
+
+# Capture and immediately diagnose
+skill-perf measure --prompt "Analyze AAPL" --skill ./my-skill/ --diagnose
 
 # A/B comparison of two skill versions
 skill-perf measure --compare --skill-a ./v1/ --skill-b ./v2/ \
-    --suite ./examples/test-suite.json
-
-# Custom settings
-skill-perf measure --prompt "Parse JSON" --cli claude --port 9090 \
-    --output ./results --max-turns 5 --timeout 180
-```
-
-### `skill-perf config`
-
-Show or generate threshold configuration.
-
-```bash
-# Show current thresholds
-skill-perf config
-
-# Generate default .skill-perf.toml in your project
-skill-perf config --generate
+    --prompt "Analyze AAPL" --snapshot
 ```
 
 Output:
 
 ```
-Current thresholds:
-  large_file_read_tokens: 2000
-  excessive_exploration_count: 5
-  excessive_exploration_min_tokens: 500
-  oversized_skill_tokens: 3000
-  cat_on_large_file_tokens: 500
-  high_think_ratio: 3.0
-  low_cache_rate_ratio: 2.0
+Snapshot saved: ./.agents/skills/analyze-stocks/.snapshots/SKILL_20260325_010838.md
+Run skill-perf diff ./.agents/skills/analyze-stocks after editing to see what changed.
+
+skill-perf measure  output=./bench_results/bench_20260325_010838  model=haiku
+Proxy started on port 9090
+  Running: Analyze AAPL and give me a BUY/WAIT/AVOID recommendation...
+Proxy stopped
+
+                Measure Results
+┏━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ Label  ┃ Exit Code ┃ Duration (ms) ┃ Status ┃
+┡━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━┩
+│ single │         0 │         16726 │ OK     │
+└────────┴───────────┴───────────────┴────────┘
+
+single
+  stdout: Here is my analysis of AAPL...
+
+Traces saved to: ./bench_results/bench_20260325_010838/traces
+Trace files:     2 (1.1 MB)
+Runs completed:  1
+Skill loaded:    yes
 ```
+
+---
 
 ### `skill-perf diagnose`
 
 Parse captured trace sessions and detect waste patterns.
 
 ```bash
-# Diagnose a single session
-skill-perf diagnose ./bench_results/session-001/
+skill-perf diagnose ./bench_results/bench_20260325_010838/traces/
 
 # Include skill directory for script detection
-skill-perf diagnose ./bench_results/session-001/ --skill ./my-skill/
+skill-perf diagnose ./bench_results/.../traces/ --skill ./my-skill/
 
-# Open interactive HTML treemap in browser
-skill-perf diagnose ./bench_results/session-001/ --open
+# Save HTML report
+skill-perf diagnose ./bench_results/.../traces/ --report ./report.html
 
-# Save HTML report to file
-skill-perf diagnose ./bench_results/session-001/ --report ./report.html
-
-# Use custom threshold config
-skill-perf diagnose ./bench_results/session-001/ --config custom.toml
-
-# JSON output for programmatic use
-skill-perf diagnose ./bench_results/session-001/ --json
+# JSON output
+skill-perf diagnose ./bench_results/.../traces/ --json
 ```
 
 Output:
 
 ```
-───────────────────────────── Session: session_01 ──────────────────────────────
-  Model: claude-sonnet-4-20250514
-  API reported: in=1,500 out=350
-  Steps: 14
+─────────────────────────────── Session: traces ────────────────────────────────
+  Model: claude-haiku-4-5-20251001
+  API reported: in=18 out=599
+  Steps: 7
+
+Step-by-step breakdown:
+  [  1] system_prompt             5,833 tokens
+  [  2] user_message             13,867 tokens
+  [  3] system_prompt             5,832 tokens
+  [  4] user_message             13,867 tokens
+  [  5] skill_load                   15 tokens
+        Skill: analyze-stocks (AAPL)
+  [  6] user_message                  6 tokens
+  [  7] tool_result                   6 tokens
 
 Token distribution:
  Category                    Tokens        %  Bar
- tool_result                  5,508    49.8%  ############.............
- user_message                 5,498    49.7%  ############.............
- tool_call                       23     0.2%  .........................
- system_prompt                   14     0.1%  .........................
- skill_load                      11     0.1%  .........................
+ user_message                27,740    70.4%  █████████████████░░░░░░░░
+ system_prompt               11,665    29.6%  ███████░░░░░░░░░░░░░░░░░░
+ skill_load                      15     0.0%  ░░░░░░░░░░░░░░░░░░░░░░░░░
+ tool_result                      6     0.0%  ░░░░░░░░░░░░░░░░░░░░░░░░░
 
-Diagnosed issues: 4 (~3,395 waste tokens, 30.7%)
-  🟡  duplicate_read (step 13, ~2,457 tokens)
+  Think/act ratio: 0.00x
+
+  No waste patterns detected.
+
+  Estimated total: 39,426 tokens
+```
+
+When issues are found:
+
+```
+Diagnosed issues: 2 (~2,914 waste tokens, 28.1%)
+  🟡 [warning] duplicate_read (step 13, +2,457 tokens over threshold)
       Duplicate read: 'src/main.py' read 4 times.
-  🟡  large_file_read (step 11, ~457 tokens)
+  🟡 [warning] large_file_read (step 11, +457 tokens over threshold)
       Large tool result: 2,457 tokens.
 ```
 
+---
+
 ### `skill-perf suggest`
 
-Generate detailed, actionable fix suggestions for every diagnosed issue, with
-estimated token savings and cost reduction.
+Generate actionable fix suggestions for every diagnosed issue. When no issues
+are found, shows a threshold health table so you know the skill is genuinely clean.
 
 ```bash
-# Get suggestions for a session
-skill-perf suggest ./bench_results/session-001/
+skill-perf suggest ./bench_results/.../traces/
 
 # JSON output
-skill-perf suggest ./bench_results/session-001/ --json
+skill-perf suggest ./bench_results/.../traces/ --json
 ```
 
-Output:
+Output (no issues):
 
 ```
-  FIX 1 of 4: large_file_read (🟡 warning)
+  ✓ No issues — all metrics within thresholds
+  Session: traces (claude-haiku-4-5-20251001)
+
+  Metric               Value    Threshold    Status
+  skill body tokens       15        5,000      ✓
+  think / act ratio    0.00x         3.0x      ✓
+  cache rate ratio     0.00x         2.0x      ✓
+```
+
+Output (issues found):
+
+```
+  FIX 1 of 2: large_file_read (🟡 warning)
   ──────────────────────────────────────────────
-  Step [10]: Large tool result: 2,457 tokens. (457 tokens)
+  Step [10]: Large tool result: 2,457 tokens. (+457 tokens over threshold)
   Step [10]: Read on src/main.py (2,457 tokens)
-╭─────────────────────────────────────────────────────────────────────────╮
-│ File src/main.py loaded 2,457 tokens into context.                      │
-│                                                                         │
-│   Add to SKILL.md:                                                      │
-│                                                                         │
-│   ## Reading src/main.py                                                │
-│   Before reading this file:                                             │
-│   1. Use `grep -n '<pattern>' src/main.py` to find the relevant section │
-│   2. Read only the matching line range                                  │
-│   Never read the entire file.                                           │
-╰─────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────╮
+│ File src/main.py loaded 2,457 tokens into context.                       │
+│                                                                          │
+│   Add to SKILL.md:                                                       │
+│                                                                          │
+│   ## Reading src/main.py                                                 │
+│   Before reading this file:                                              │
+│   1. Use `grep -n '<pattern>' src/main.py` to find the relevant section  │
+│   2. Read only the matching line range                                   │
+│   Never read the entire file.                                            │
+╰──────────────────────────────────────────────────────────────────────────╯
   Estimated savings: ~457 tokens/call ($0.0014)
 ```
+
+---
+
+### `skill-perf snapshot` and `skill-perf diff`
+
+Skill directories often live **outside any git repo** (`~/.claude/agents/`,
+`.cursor/skills/`, `.agents/skills/`). These commands give you git-diff-style
+version tracking without needing a repo.
+
+```bash
+# Save a snapshot before editing
+skill-perf snapshot ~/.claude/agents/my-skill
+
+# After editing, see exactly what changed
+skill-perf diff ~/.claude/agents/my-skill
+
+# List all saved snapshots
+skill-perf diff ~/.claude/agents/my-skill --list
+
+# Diff two specific snapshots
+skill-perf diff ~/.claude/agents/my-skill \
+    --from .snapshots/SKILL_20260101_120000.md \
+    --to   .snapshots/SKILL_20260102_090000.md
+```
+
+`measure --snapshot` auto-snapshots before the run so the snapshot is always
+tied to the exact SKILL.md version that was measured.
+
+To store snapshots globally instead of inside each skill dir:
+
+```bash
+export SKILL_PERF_SNAPSHOT_DIR=~/.skill-perf/snapshots
+```
+
+---
 
 ### `skill-perf verify`
 
@@ -244,72 +324,105 @@ Output:
 ```
   VERIFICATION
   ═══════════════════════════════════════════
-  Baseline (baseline):    29,149 tokens  |  ~$0.437
-  Current  (current):    25,853 tokens  |  ~$0.388
-                    ─────────────────────────
-  Improvement:   -3,296 tokens  | ~$-0.049
-  -11.3%      |  -11.3%
+  Baseline (v1):    29,149 tokens  |  ~$0.437
+  Current  (v2):    25,853 tokens  |  ~$0.388
+                ─────────────────────────────
+  Improvement:   -3,296 tokens  | ~$-0.049  (-11.3%)
 
   Category                 Baseline    Current      Delta    Change
-  ──────────────────────────────────────────────────────────────
-  system_prompt              17,044     17,057 +       +13     +0.1%
-  user_message               10,238      8,582     -1,656    -16.2%
-  tool_result                 1,775         82     -1,693    -95.4%
-  skill_load                     92         36        -56    -60.9%
-  tool_call                       0         96 +       +96       new
+  ──────────────────────────────────────────────────────────────────
+  system_prompt              17,044     17,057         +13     +0.1%
+  user_message               10,238      8,582      -1,656    -16.2%
+  tool_result                 1,775         82      -1,693    -95.4%
+  skill_load                     92         36         -56    -60.9%
 
   Issues resolved:  🔴0 -> ✅0
   Issues remaining: none
   ═══════════════════════════════════════════
 ```
 
+---
+
+### `skill-perf config`
+
+Show or generate threshold configuration.
+
+```bash
+skill-perf config
+skill-perf config --generate   # writes .skill-perf.toml
+```
+
+Output:
+
+```
+Current thresholds:
+  estimate_description_tokens: 100
+  estimate_body_tokens: 5000
+  estimate_single_ref_tokens: 5000
+  estimate_total_tokens: 10000
+  large_file_read_tokens: 2000
+  excessive_exploration_count: 5
+  excessive_exploration_min_tokens: 500
+  oversized_skill_tokens: 5000
+  cat_on_large_file_tokens: 500
+  high_think_ratio: 3.0
+  low_cache_rate_ratio: 2.0
+```
+
+---
+
 ## Waste Patterns
 
-skill-perf detects 10 built-in waste patterns (thresholds are configurable via `.skill-perf.toml`):
+skill-perf detects 10 built-in waste patterns (all thresholds configurable via `.skill-perf.toml`):
 
 | Severity | Pattern | Description |
 |----------|---------|-------------|
-| critical | `script_not_executed` | Skill has `scripts/` but the model did work manually instead of running them |
-| warning | `large_file_read` | Tool result exceeds 2,000 tokens -- consider filtering or extracting relevant sections |
+| critical | `script_not_executed` | Skill has `scripts/` but model did work manually instead of running them |
+| warning | `large_file_read` | Tool result exceeds 2,000 tokens — consider filtering or extracting relevant sections |
 | warning | `duplicate_read` | Same file read more than once across turns |
 | warning | `excessive_exploration` | 5+ consecutive glob/grep calls (>500 tokens) before taking action |
-| warning | `oversized_skill` | Skill file loaded with more than 3,000 tokens at once |
+| warning | `oversized_skill` | Skill file loaded with more than 5,000 tokens at once |
 | warning | `cat_on_large_file` | Using `cat` on a large file instead of grep/head/tail |
 | warning | `skill_not_triggered` | Prompt matches skill description but skill was never loaded |
-| info | `low_cache_rate` | API input tokens significantly exceed estimated content, suggesting poor cache utilization |
-| info | `high_think_ratio` | Model generating 3x+ more text than tool calls -- too much explaining, not enough doing |
-| info | `inline_code_generation` | Model wrote 1000+ tokens of code inline that could be a bundled script |
+| info | `low_cache_rate` | API input tokens significantly exceed estimated content, suggesting poor cache utilisation |
+| info | `high_think_ratio` | Model generating 3x+ more text than tool calls — too much explaining, not enough doing |
+| info | `inline_code_generation` | Model wrote 1,000+ tokens of code inline that could be a bundled script |
+
+## Supported CLI Tools
+
+| `--cli` value | Tool | `--model` example |
+|---|---|---|
+| `claude` (default) | Claude Code | `haiku`, `claude-haiku-4-5`, `claude-sonnet-4-6` |
+| `cursor` or `agent` | Cursor headless agent | `claude-sonnet-4-6`, `gpt-4o` |
+| `gemini` | Gemini CLI | `gemini-2.5-flash`, `gemini-2.5-pro` |
+| `aider` | Aider | n/a (aider manages its own model) |
+
+Default model is `haiku` for fast, cheap iteration. Upgrade to sonnet/opus only for final verification.
 
 ## How It Works
 
-skill-perf builds on the [Agent Skills architecture](https://claude.com/blog/equipping-agents-for-the-real-world-with-agent-skills)
-and follows [official best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
-for skill structure and progressive disclosure.
-
-1. **Token counting** -- Uses `tiktoken` (cl100k_base) to count tokens in skill
+1. **Token counting** — Uses `tiktoken` (cl100k_base) to count tokens in skill
    files, references, scripts, and captured API traffic.
 
-2. **Proxy capture** -- `llm-interceptor` (lli) runs a local proxy that intercepts
-   API requests/responses between the CLI tool (Claude, Aider, Cursor) and the LLM
-   provider, recording full request/response pairs as structured trace files.
+2. **Proxy capture** — `llm-interceptor` runs a local proxy that intercepts
+   API requests/responses between the CLI and the LLM provider, recording full
+   request/response pairs as structured trace files.
 
-3. **Trace parsing** -- Trace files are parsed into structured conversation
+3. **Trace parsing** — Trace files are parsed into structured conversation
    steps (system prompt, user message, tool calls, tool results, assistant
    responses) with per-step token counts.
 
-4. **Pattern detection** -- Ten detector functions scan the step sequence for
+4. **Pattern detection** — Ten detector functions scan the step sequence for
    known waste patterns and emit issues with severity, token impact, and
    suggested fixes. All thresholds are configurable.
 
-5. **Suggestion generation** -- Each issue is expanded into a detailed,
+5. **Suggestion generation** — Each issue is expanded into a detailed,
    actionable suggestion with estimated token and cost savings.
 
 See [docs/thresholds.md](docs/thresholds.md) for threshold rationale and
 official Anthropic guidelines.
 
 ## Test Suite Format
-
-You can define reusable prompt suites in JSON for repeatable benchmarking:
 
 ```json
 [
@@ -324,87 +437,52 @@ You can define reusable prompt suites in JSON for repeatable benchmarking:
 ]
 ```
 
-See `examples/test-suite.json` for a complete example.
+Pass with `skill-perf measure --suite ./test-suite.json`. See `examples/test-suite.json`.
 
 ## Configuration
 
-All pattern detection thresholds are configurable via `.skill-perf.toml`:
-
 ```bash
-# Generate default config
-skill-perf config --generate
+skill-perf config --generate   # creates .skill-perf.toml
 ```
-
-This creates `.skill-perf.toml` with all thresholds:
 
 ```toml
 [thresholds]
+estimate_body_tokens = 5000
+estimate_total_tokens = 10000
 large_file_read_tokens = 2000
 excessive_exploration_count = 5
-excessive_exploration_min_tokens = 500
-oversized_skill_tokens = 3000
+oversized_skill_tokens = 5000
 cat_on_large_file_tokens = 500
 high_think_ratio = 3.0
 low_cache_rate_ratio = 2.0
 ```
 
-Place this file in your project root. skill-perf auto-loads it, or pass
-`--config path/to/config.toml` explicitly.
-
 ## Using with AI Coding Assistants
 
-skill-perf includes a skill that teaches AI coding assistants (Claude Code,
-Cursor, Aider) how to interpret diagnose/suggest output and generate specific,
-context-aware SKILL.md fixes.
-
-### Install the skill
+skill-perf ships a skill that teaches AI assistants to interpret diagnose/suggest
+output and generate targeted SKILL.md fixes.
 
 ```bash
-# Install to your current project (workspace-level)
-skill-perf init
-
-# Or install globally for all projects
-skill-perf init --global
-
-# Overwrite existing installation
-skill-perf init --force
+skill-perf init           # workspace-level (.agents/skills/skill-perf/)
+skill-perf init --global  # global (~/.claude/agents/skill-perf/)
 ```
 
-**Workspace install** creates `.claude/skills/skill-perf.md` in your project --
-the skill is auto-discovered by Claude Code for that project.
-
-**Global install** creates `~/.claude/agents/skill-perf.md` -- available across
-all your projects.
-
-### Use the skill
-
-In your AI coding session:
-
-```bash
-# 1. Run diagnosis on captured traces
-skill-perf diagnose ./traces/
-
-# 2. Ask the assistant to improve your skill based on the output
-# The skill teaches it how to interpret results and write targeted fixes
-```
-
-The assistant will use actual file paths, step numbers, and token counts from
-the trace to generate copy-paste-ready SKILL.md patches -- much more specific
-than the static template suggestions.
+Then in your AI session, run `skill-perf suggest` and ask the assistant to apply
+the fixes. Use `skill-perf snapshot` before and `skill-perf diff` after to review
+every change.
 
 ## Development
 
 ```bash
 git clone https://github.com/hystericcore/skill-perf.git
 cd skill-perf
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest
 ```
 
-See [docs/development.md](docs/development.md) for the full development guide
-including project structure, testing, adding new patterns, and cleanup.
+See [docs/development.md](docs/development.md) for project structure, testing,
+and adding new patterns.
 
 ## License
 

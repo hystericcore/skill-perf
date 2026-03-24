@@ -38,7 +38,9 @@ Run `skill-perf measure -p "prompt" --diagnose` to capture real token usage via 
 Key flags:
 - `--cli` — which coding assistant to invoke: `claude` (default), `cursor` / `agent`, `gemini`, `aider`
 - `--model` — model name passed to the CLI (default: `haiku` for fast/cheap iteration). Use the assistant's model ID, e.g. `claude-haiku-4-5`, `gemini-2.5-flash`, `gpt-4o`.
-- `--skill-a` / `--skill-b` + `--compare` — A/B test two skill versions in one run
+- `--skill <dir>` — skill directory to load (sets CLI working dir so the skill is active during the run)
+- `--snapshot` — automatically snapshot the skill's SKILL.md before running so you can `skill-perf diff` afterwards to see what changed
+- `--skill-a` / `--skill-b` + `--compare` — A/B test two skill versions in one run (`--snapshot` snapshots both)
 
 Reading the output:
 - **exit_code 0 + JSON stdout + traces captured** = successful run, proceed to diagnose
@@ -66,7 +68,8 @@ Skill directories are often **outside any git repo** (e.g. `~/.claude/agents/my-
 `.cursor/skills/my-skill`, `.agents/skills/my-skill`), so `git diff` won't help.
 Use skill-perf's own snapshot system instead.
 
-Before editing, snapshot the current version:
+If you ran `measure --snapshot`, the snapshot was already taken before the run.
+Otherwise, snapshot manually before editing:
 
 ```
 skill-perf snapshot <skill-dir>

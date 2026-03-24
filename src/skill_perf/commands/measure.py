@@ -175,6 +175,17 @@ def _print_summary(results: list[tuple[str, RunResult]], trace_dir: str) -> None
         )
 
 
+def _auto_snapshot(skill_dirs: list[str]) -> None:
+    """Snapshot each valid skill directory, silently skipping missing ones."""
+    from skill_perf.commands.snapshot import run_snapshot
+
+    for d in skill_dirs:
+        if d and os.path.isfile(os.path.join(d, "SKILL.md")):
+            run_snapshot(d)
+        elif d:
+            console.print(f"[yellow]Snapshot skipped:[/yellow] no SKILL.md in {d}")
+
+
 def run_measure(
     prompt: Optional[str],
     suite_path: Optional[str],
@@ -186,8 +197,10 @@ def run_measure(
     do_diagnose: bool,
     open_browser: bool,
     compare: bool,
-    skill_a: Optional[str],
-    skill_b: Optional[str],
+    skill_dir: Optional[str] = None,
+    skill_a: Optional[str] = None,
+    skill_b: Optional[str] = None,
+    auto_snapshot: bool = False,
     allowed_tools: str = "*",
     model: Optional[str] = None,
 ) -> None:
@@ -200,6 +213,11 @@ def run_measure(
     if compare and (not skill_a or not skill_b):
         console.print("[red]Error:[/red] --compare requires both --skill-a and --skill-b")
         raise SystemExit(1)
+
+    # --- Auto-snapshot skill(s) before any changes ---
+    if auto_snapshot:
+        dirs = [skill_a, skill_b] if compare else [skill_dir]
+        _auto_snapshot([d for d in dirs if d])
 
     # --- Create output directory ---
     run_dir = _make_run_dir(output_dir)
@@ -244,7 +262,7 @@ def run_measure(
                 console.print(f"  Running: {tc.label}")
                 result = runner.run(
                     tc.prompt, cli=cli, max_turns=max_turns, timeout=timeout,
-                    allowed_tools=allowed_tools, model=model,
+                    skill_dir=skill_dir, allowed_tools=allowed_tools, model=model,
                 )
                 results.append((tc.label, result))
 
@@ -254,7 +272,7 @@ def run_measure(
             console.print(f"  Running: {prompt[:80]}...")
             result = runner.run(
                 prompt, cli=cli, max_turns=max_turns, timeout=timeout,
-                allowed_tools=allowed_tools, model=model,
+                skill_dir=skill_dir, allowed_tools=allowed_tools, model=model,
             )
             results.append(("single", result))
 

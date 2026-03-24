@@ -87,9 +87,15 @@ def measure(
     timeout: int = typer.Option(120, "--timeout", help="Timeout per run in seconds"),
     do_diagnose: bool = typer.Option(False, "--diagnose", help="Run diagnosis after capture"),
     open_browser: bool = typer.Option(False, "--open", help="Open HTML report"),
+    skill_dir: Optional[str] = typer.Option(
+        None, "--skill", help="Skill directory to load (sets CLI working dir and auto-snapshots with --snapshot)"
+    ),
     compare: bool = typer.Option(False, "--compare", help="A/B comparison mode"),
     skill_a: Optional[str] = typer.Option(None, "--skill-a", help="Skill version A directory"),
     skill_b: Optional[str] = typer.Option(None, "--skill-b", help="Skill version B directory"),
+    auto_snapshot: bool = typer.Option(
+        False, "--snapshot", help="Snapshot skill SKILL.md(s) before running so you can diff afterwards"
+    ),
     allowed_tools: str = typer.Option(
         "*",
         "--allowed-tools",
@@ -114,8 +120,10 @@ def measure(
         do_diagnose=do_diagnose,
         open_browser=open_browser,
         compare=compare,
+        skill_dir=skill_dir,
         skill_a=skill_a,
         skill_b=skill_b,
+        auto_snapshot=auto_snapshot,
         allowed_tools=allowed_tools,
         model=model,
     )

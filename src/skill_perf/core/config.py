@@ -10,7 +10,23 @@ CONFIG_FILENAME = ".skill-perf.toml"
 
 
 class ThresholdConfig(BaseModel):
-    """Configurable thresholds for waste pattern detection."""
+    """Configurable thresholds for skill-perf."""
+
+    # --- Estimate thresholds (skill structure) ---
+
+    # description: warn if above this (shares 2% context budget with all skills)
+    estimate_description_tokens: int = 100
+
+    # SKILL.md body: official "under 5,000 tokens"
+    estimate_body_tokens: int = 5000
+
+    # single reference file
+    estimate_single_ref_tokens: int = 5000
+
+    # total skill footprint
+    estimate_total_tokens: int = 10000
+
+    # --- Diagnose thresholds (waste patterns) ---
 
     # large_file_read: tool result token count above this triggers the pattern
     large_file_read_tokens: int = 2000
@@ -72,8 +88,25 @@ def generate_default_config() -> str:
     defaults = ThresholdConfig()
     return f"""# skill-perf configuration
 # Place this file as .skill-perf.toml in your project root
+# See docs/thresholds.md for rationale and official sources
 
 [thresholds]
+# --- Estimate (skill structure) ---
+
+# description: warn above this (shares 2% context budget with all skills)
+estimate_description_tokens = {defaults.estimate_description_tokens}
+
+# SKILL.md body (official: "under 5,000 tokens")
+estimate_body_tokens = {defaults.estimate_body_tokens}
+
+# single reference file
+estimate_single_ref_tokens = {defaults.estimate_single_ref_tokens}
+
+# total skill footprint
+estimate_total_tokens = {defaults.estimate_total_tokens}
+
+# --- Diagnose (waste patterns) ---
+
 # large_file_read: flag tool results above this token count
 large_file_read_tokens = {defaults.large_file_read_tokens}
 

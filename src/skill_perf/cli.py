@@ -57,9 +57,12 @@ def estimate(
     paths: list[str] = typer.Argument(..., help="Path(s) to SKILL.md file(s) or directories"),
     compare: bool = typer.Option(False, "--compare", help="Compare multiple skill versions"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+    config: Optional[str] = typer.Option(
+        None, "--config", help="Path to .skill-perf.toml config file"
+    ),
 ) -> None:
     """Offline skill analysis -- token count, cost estimate, structure check."""
-    run_estimate(paths, compare=compare, json_output=json_output)
+    run_estimate(paths, compare=compare, json_output=json_output, config_path=config)
 
 
 @app.command()

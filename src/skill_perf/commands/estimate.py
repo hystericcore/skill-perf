@@ -17,26 +17,7 @@ from rich.table import Table
 from rich.text import Text
 
 from skill_perf.core import count_tokens, get_all_costs
-
-# ---------------------------------------------------------------------------
-# Size limits for warnings
-#
-# Official Anthropic guidelines:
-#   - description: max 1024 chars per skill
-#   - All descriptions share 2% of context window (fallback: 16,000 chars)
-#     → With 10 skills: ~1,600 chars each; with 50: ~320 chars (~90 tokens)
-#   - SKILL.md body: "under 5,000 tokens" (Level 2)
-#   - Level 3 resources: "effectively unlimited"
-#   - Level 1 metadata: ~100 tokens per skill
-#
-# Sources:
-#   https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview
-#   https://code.claude.com/docs/en/skills
-# ---------------------------------------------------------------------------
-LIMIT_DESCRIPTION_TOKENS = 100  # keep short — shares 2% context budget with all skills
-LIMIT_BODY_TOKENS = 5000  # official: "under 5k tokens"
-LIMIT_SINGLE_REF_TOKENS = 5000
-LIMIT_TOTAL_TOKENS = 10000
+from skill_perf.core.config import ThresholdConfig, load_config
 
 console = Console()
 
@@ -114,7 +95,9 @@ def _discover_files(base_dir: Path) -> list[Path]:
 # Core analysis
 # ---------------------------------------------------------------------------
 
-def analyze_skill_dir(skill_path: str) -> SkillEstimate:
+def analyze_skill_dir(
+    skill_path: str, config: ThresholdConfig | None = None,
+) -> SkillEstimate:
     """Analyze a SKILL.md file and its ``references/`` and ``scripts/`` directories.
 
     Parameters
@@ -127,6 +110,7 @@ def analyze_skill_dir(skill_path: str) -> SkillEstimate:
     SkillEstimate
         Populated estimate with per-file info, total tokens, costs, and warnings.
     """
+    cfg = config or ThresholdConfig()
     path = Path(skill_path)
     if path.is_dir():
         skill_file = path / "SKILL.md"
@@ -157,9 +141,9 @@ def analyze_skill_dir(skill_path: str) -> SkillEstimate:
             line_count=1,
         )
     )
-    if desc_tokens > LIMIT_DESCRIPTION_TOKENS:
+    if desc_tokens > cfg.estimate_description_tokens:
         warnings.append(
-            f"description is {desc_tokens} tokens (limit {LIMIT_DESCRIPTION_TOKENS})"
+            f"description is {desc_tokens} tokens (limit {cfg.estimate_description_tokens})"
         )
 
     # -- Level 2: SKILL.md body --
@@ -174,9 +158,9 @@ def analyze_skill_dir(skill_path: str) -> SkillEstimate:
             line_count=body_lines,
         )
     )
-    if body_tokens > LIMIT_BODY_TOKENS:
+    if body_tokens > cfg.estimate_body_tokens:
         warnings.append(
-            f"SKILL.md body is {body_tokens} tokens (limit {LIMIT_BODY_TOKENS})"
+            f"SKILL.md body is {body_tokens} tokens (limit {cfg.estimate_body_tokens})"
         )
 
     # -- Level 3: references & scripts --
@@ -201,15 +185,15 @@ def analyze_skill_dir(skill_path: str) -> SkillEstimate:
                 line_count=ref_lines,
             )
         )
-        if ref_tokens > LIMIT_SINGLE_REF_TOKENS:
+        if ref_tokens > cfg.estimate_single_ref_tokens:
             warnings.append(
-                f"{rel} is {ref_tokens} tokens (limit {LIMIT_SINGLE_REF_TOKENS})"
+                f"{rel} is {ref_tokens} tokens (limit {cfg.estimate_single_ref_tokens})"
             )
 
     total_tokens = sum(f.token_count for f in files)
-    if total_tokens > LIMIT_TOTAL_TOKENS:
+    if total_tokens > cfg.estimate_total_tokens:
         warnings.append(
-            f"Total is {total_tokens} tokens (limit {LIMIT_TOTAL_TOKENS})"
+            f"Total is {total_tokens} tokens (limit {cfg.estimate_total_tokens})"
         )
 
     costs = get_all_costs(total_tokens)
@@ -234,8 +218,11 @@ def _status_badge(tokens: int, limit: int) -> Text:
     return Text(f"  [OVER {limit}]", style="bold red")
 
 
-def print_estimate(estimate: SkillEstimate) -> None:
+def print_estimate(
+    estimate: SkillEstimate, config: ThresholdConfig | None = None,
+) -> None:
     """Print Rich terminal output for a single skill estimate."""
+    cfg = config or ThresholdConfig()
     out = console
 
     out.print()
@@ -246,7 +233,7 @@ def print_estimate(estimate: SkillEstimate) -> None:
     for f in estimate.files:
         if f.level == 1:
             line = Text(f"  {f.label}: {f.token_count} tokens")
-            line.append_text(_status_badge(f.token_count, LIMIT_DESCRIPTION_TOKENS))
+            line.append_text(_status_badge(f.token_count, cfg.estimate_description_tokens))
             out.print(line)
 
     # -- Level 2 --
@@ -254,7 +241,7 @@ def print_estimate(estimate: SkillEstimate) -> None:
     for f in estimate.files:
         if f.level == 2:
             line = Text(f"  {f.label}: {f.token_count} tokens ({f.line_count} lines)")
-            line.append_text(_status_badge(f.token_count, LIMIT_BODY_TOKENS))
+            line.append_text(_status_badge(f.token_count, cfg.estimate_body_tokens))
             out.print(line)
 
     # -- Level 3 --
@@ -363,22 +350,22 @@ def run_estimate(
     paths: list[str],
     compare: bool = False,
     json_output: bool = False,
+    config_path: str | None = None,
 ) -> None:
     """High-level entry point invoked by the Typer command."""
+    config = load_config(config_path)
     estimates: list[SkillEstimate] = []
 
     for p in paths:
         pp = Path(p)
         if pp.is_dir():
-            # If directory contains SKILL.md, analyse it directly.
-            # Otherwise walk for SKILL.md files.
             if (pp / "SKILL.md").exists():
-                estimates.append(analyze_skill_dir(str(pp)))
+                estimates.append(analyze_skill_dir(str(pp), config=config))
             else:
                 for child in sorted(pp.rglob("SKILL.md")):
-                    estimates.append(analyze_skill_dir(str(child)))
+                    estimates.append(analyze_skill_dir(str(child), config=config))
         elif pp.is_file():
-            estimates.append(analyze_skill_dir(str(pp)))
+            estimates.append(analyze_skill_dir(str(pp), config=config))
         else:
             console.print(f"[bold red]Not found:[/bold red] {p}")
 
@@ -395,4 +382,4 @@ def run_estimate(
         print_comparison(estimates)
     else:
         for e in estimates:
-            print_estimate(e)
+            print_estimate(e, config=config)

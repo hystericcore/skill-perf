@@ -189,8 +189,12 @@ def snapshot(
     exactly what changed — even when the skill lives outside any git tree
     (e.g. ~/.claude/agents/, .cursor/skills/, .agents/skills/).
 
-    Snapshots are stored in <skill-dir>/.snapshots/ and are never committed
-    to git (added to .gitignore automatically if a repo is present).
+    Snapshots are stored in <skill-dir>/.snapshots/ by default and are never
+    committed to git. To store all snapshots in one global location instead,
+    set the env var before running:
+
+      export SKILL_PERF_SNAPSHOT_DIR=~/.skill-perf/snapshots
+      skill-perf snapshot ~/.cursor/skills/my-skill
     """
     from skill_perf.commands.snapshot import run_snapshot
 

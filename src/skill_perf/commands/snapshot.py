@@ -15,9 +15,21 @@ console = Console()
 
 _SNAPSHOTS_DIR = ".snapshots"
 _SKILL_FILE = "SKILL.md"
+_ENV_VAR = "SKILL_PERF_SNAPSHOT_DIR"
 
 
 def _snapshots_dir(skill_dir: str) -> Path:
+    """Return the snapshot directory for a skill.
+
+    If ``SKILL_PERF_SNAPSHOT_DIR`` is set, snapshots are stored there under a
+    slug derived from the skill path (e.g. ``$SKILL_PERF_SNAPSHOT_DIR/cursor-skills-my-skill/``).
+    Otherwise they default to ``<skill-dir>/.snapshots/``.
+    """
+    base = os.environ.get(_ENV_VAR)
+    if base:
+        # derive a readable slug from the absolute skill path
+        slug = Path(skill_dir).resolve().as_posix().lstrip("/").replace("/", "-")
+        return Path(base).expanduser() / slug
     return Path(skill_dir) / _SNAPSHOTS_DIR
 
 
@@ -43,6 +55,11 @@ def run_snapshot(skill_dir: str) -> str:
     console.print(
         f"[dim]Run [bold]skill-perf diff {skill_dir}[/bold] after editing to see what changed.[/dim]"
     )
+    if not os.environ.get(_ENV_VAR):
+        console.print(
+            f"[dim]Tip: set [bold]{_ENV_VAR}=~/.skill-perf/snapshots[/bold] "
+            "to store all snapshots in one global location instead.[/dim]"
+        )
     return str(snap_file)
 
 

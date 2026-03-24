@@ -116,6 +116,32 @@ class TestRunListSnapshots:
         run_list_snapshots(skill_dir)  # should not raise
 
 
+class TestGlobalSnapshotDir:
+    def test_env_var_redirects_snapshot(self, tmp_path, monkeypatch) -> None:
+        skill_dir = _make_skill_dir()
+        global_dir = str(tmp_path / "global-snaps")
+        monkeypatch.setenv("SKILL_PERF_SNAPSHOT_DIR", global_dir)
+        path = run_snapshot(skill_dir)
+        assert global_dir in path
+        assert ".snapshots" not in path
+
+    def test_env_var_not_set_uses_local(self, monkeypatch) -> None:
+        monkeypatch.delenv("SKILL_PERF_SNAPSHOT_DIR", raising=False)
+        skill_dir = _make_skill_dir()
+        path = run_snapshot(skill_dir)
+        assert ".snapshots" in path
+
+    def test_slug_derived_from_skill_path(self, tmp_path, monkeypatch) -> None:
+        skill_dir = _make_skill_dir()
+        global_dir = str(tmp_path / "snaps")
+        monkeypatch.setenv("SKILL_PERF_SNAPSHOT_DIR", global_dir)
+        path = run_snapshot(skill_dir)
+        # slug should contain parts of the resolved path
+        from pathlib import Path
+        slug = Path(skill_dir).resolve().as_posix().lstrip("/").replace("/", "-")
+        assert slug in path
+
+
 class TestSnapshotCLI:
     runner = CliRunner()
 
